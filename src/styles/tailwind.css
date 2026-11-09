@@ -16,3 +16,5 @@
 html, body, #root { height: 100%; }
 body { background: var(--bg); color: var(--text); -webkit-tap-highlight-color: transparent; }
 input, textarea, select { color: inherit; }
+
+@keyframes flash-fade { from { opacity: 0.85; } to { opacity: 0; } }
