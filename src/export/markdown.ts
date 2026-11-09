@@ -1,0 +1,42 @@
+import type { Units } from "../plan/types";
+import { localDate } from "../workout/session";
+import type { Workout } from "../workout/types";
+import { describeLog } from "./describe";
+
+export const FORMAT_VERSION = 1;
+
+export function workoutMinutes(w: Workout): number {
+  if (!w.finishedAt) return 0;
+  return Math.max(0, Math.round((Date.parse(w.finishedAt) - Date.parse(w.startedAt)) / 60000));
+}
+
+export function exportFileName(now: Date): string {
+  return `workout-log-${localDate(now)}.md`;
+}
+
+function clean(w: Workout): Workout {
+  const { timer: _t, currentIndex: _c, ...rest } = w;
+  return rest;
+}
+
+export function toMarkdown(workouts: Workout[], aliases: Record<string, string>, units: Units, now: Date): string {
+  const done = workouts.filter((w) => w.finishedAt).map(clean).sort((a, b) => b.startedAt.localeCompare(a.startedAt));
+  const dates = done.map((w) => localDate(new Date(w.startedAt)));
+  const range = done.length ? ` · ${dates[dates.length - 1]} to ${dates[0]}` : "";
+  const out: string[] = [
+    "# Workout log",
+    `Exported ${localDate(now)} · ${done.length} workout${done.length === 1 ? "" : "s"}${range} · units: ${units}`,
+    "",
+  ];
+  done.forEach((w, i) => {
+    const unitNote = w.units !== units ? ` · weights in ${w.units}` : "";
+    out.push(`## ${dates[i]} · ${w.title} · ${workoutMinutes(w)} min${unitNote}`);
+    if (w.notes) out.push(`Notes: ${w.notes}`);
+    out.push("");
+    for (const log of w.exercises) out.push(...describeLog(log));
+    out.push("");
+  });
+  const data = { formatVersion: FORMAT_VERSION, exportedAt: now.toISOString(), units, aliases, workouts: done };
+  out.push("---", "", `Raw data (format version ${FORMAT_VERSION}):`, "", "```json", JSON.stringify(data), "```", "");
+  return out.join("\n");
+}
