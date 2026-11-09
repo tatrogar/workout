@@ -9,8 +9,10 @@
   --text: #f1f5f9;
   --muted: #94a3b8;
   --accent: #38bdf8;
-  --series-1: #38bdf8;
-  --series-2: #f59e0b;
+  --grid: #334155;
+  /* validated (dataviz validate_palette, dark, surface #0f172a) */
+  --series-1: #1d8fd0;
+  --series-2: #d97706;
   --good: #22c55e;
 }
 html, body, #root { height: 100%; }
