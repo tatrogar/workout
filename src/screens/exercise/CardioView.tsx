@@ -1,11 +1,9 @@
 import { Button, Check, Stepper } from "../../components/ui";
 import { formatDuration } from "../../plan/tokens";
-import { elapsedMs, newTimer, pause, resume, start } from "../../timer/engine";
+import { elapsedMs, newTimer, pause, resume, start, stopwatchPhases } from "../../timer/engine";
 import { unlockAudio } from "../../timer/cues";
 import { setCardio } from "../../workout/session";
 import type { ExerciseProps } from "./shared";
-
-const STOPWATCH = [{ label: "WORK" as const, sec: 24 * 3600, round: 1 }];
 
 export function CardioView({ w, idx, now, timer, update, setTimer }: ExerciseProps) {
   const log = w.exercises[idx];
@@ -19,7 +17,7 @@ export function CardioView({ w, idx, now, timer, update, setTimer }: ExercisePro
       <p className="text-center text-[var(--muted)]">Planned {Math.round(p.durationSec / 60)} min{p.distance ? `, ${p.distance} ${unit}` : ""}</p>
       <div className="text-center font-mono font-bold tabular-nums" style={{ fontSize: "min(22vw, 7rem)" }} data-testid="timer">{formatDuration(secs)}</div>
       <div className="grid grid-cols-2 gap-2">
-        {!timer && <Button variant="primary" className="col-span-2 text-xl" onClick={() => { unlockAudio(); setTimer(start(newTimer(STOPWATCH), Date.now() - (log.durationSec ?? 0) * 1000)); }}>{log.durationSec ? "Continue" : "Start stopwatch"}</Button>}
+        {!timer && <Button variant="primary" className="col-span-2 text-xl" onClick={() => { unlockAudio(); setTimer(start(newTimer(stopwatchPhases()), Date.now() - (log.durationSec ?? 0) * 1000)); }}>{log.durationSec ? "Continue" : "Start stopwatch"}</Button>}
         {timer && <Button onClick={() => setTimer(running ? pause(timer, now) : resume(timer, Date.now()))}>{running ? "Pause" : "Resume"}</Button>}
         {timer && <Button variant="primary" onClick={() => { update((x) => setCardio(x, idx, { durationSec: secs })); setTimer(null); }}>Stop & save</Button>}
       </div>

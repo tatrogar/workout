@@ -76,8 +76,8 @@ describe("crossedCues", () => {
     expect(crossedCues(r, T0 + 59.9 * S, T0 + 60.1 * S)).toEqual(["END"]);
   });
   it("does not replay missed cues", () => {
-    expect(crossedCues(t, T0 + 5 * S, T0 + 600 * S)).toEqual(["END"]);
-    expect(crossedCues(t, T0 + 5 * S, T0 + 95 * S)).toEqual(["WORK"]);
+    expect(crossedCues(t, T0 + 5 * S, T0 + 600 * S)).toEqual([]);
+    expect(crossedCues(t, T0 + 5 * S, T0 + 95 * S)).toEqual([]);
   });
 });
 

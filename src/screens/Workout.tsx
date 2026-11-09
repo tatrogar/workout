@@ -2,13 +2,13 @@ import { useEffect, useRef } from "react";
 import { Button, LinkButton } from "../components/ui";
 import { formatDuration } from "../plan/tokens";
 import { addSeconds, crossedCues, view, type TimerState } from "../timer/engine";
-import { fireCue } from "../timer/cues";
+import { fireCue, unlockAudio } from "../timer/cues";
 import { useNow, useWakeLock } from "../timer/useNow";
 import { navigate } from "../router";
 import { useData } from "../store/data";
 import { useSettings } from "../store/settings";
 import { describePlanned } from "../export/describe";
-import { setCurrent, setNotes, setTimer, skipExercise } from "../workout/session";
+import { setCurrent, setNotes, setTimer, settleTimer, skipExercise } from "../workout/session";
 import type { Workout as W } from "../workout/types";
 import { CardioView, OtherView } from "./exercise/CardioView";
 import { CircuitView } from "./exercise/CircuitView";
@@ -56,11 +56,12 @@ export function Workout() {
   const isRest = entry?.state.phases[0]?.label === "REST_TIMER";
   const exTimer = entry && entry.exerciseIndex === idx && !isRest ? entry.state : null;
   const update = (fn: (w: W) => W) => updateActive(fn);
-  const putTimer = (state: TimerState | null) => updateActive((w) => setTimer(w, state ? { exerciseIndex: idx, state } : undefined));
+  const putTimer = (state: TimerState | null) =>
+    updateActive((w) => setTimer(state && w.timer && w.timer.exerciseIndex !== idx ? settleTimer(w, Date.now()) : w, state ? { exerciseIndex: idx, state } : undefined));
   const go = (i: number) => {
     // Leaving an exercise drops its unstarted/finished timer, but keeps a running rest timer.
     updateActive((w) => {
-      let x = setCurrent(w, i);
+      let x = setCurrent(settleTimer(w, Date.now()), i);
       if (x.timer && x.timer.state.phases[0]?.label !== "REST_TIMER") {
         const v = view(x.timer.state, Date.now());
         if (v.done || x.timer.state.startedAt === null) x = setTimer(x, undefined);
@@ -72,7 +73,7 @@ export function Workout() {
   const elapsed = Math.floor((now - Date.parse(active.startedAt)) / 1000);
 
   return (
-    <div className="flex min-h-full flex-col gap-4 pb-28">
+    <div className="flex min-h-full flex-col gap-4 pb-28" onPointerDown={unlockAudio}>
       <header className="flex items-center justify-between text-sm text-[var(--muted)]">
         <a href="#/" className="min-h-touch py-3 pr-3">‹ Start</a>
         <span className="truncate px-2">{active.title} · {formatDuration(elapsed)}</span>

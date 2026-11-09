@@ -32,6 +32,10 @@ export function unlockAudio(): void {
   } catch { /* no audio */ }
 }
 
+export function audioContextForTest(): AudioContext | null {
+  return ctx;
+}
+
 type FlashListener = (color: string) => void;
 const flashListeners = new Set<FlashListener>();
 export function onFlash(fn: FlashListener): () => void {
@@ -42,6 +46,7 @@ export function onFlash(fn: FlashListener): () => void {
 export const browserDeps: CueDeps = {
   beep(freq, ms, delayMs = 0) {
     if (!ctx) return;
+    if (ctx.state !== "running") void ctx.resume().catch(() => {});
     const t = ctx.currentTime + delayMs / 1000;
     const osc = ctx.createOscillator();
     const gain = ctx.createGain();

@@ -29,7 +29,7 @@ export function CircuitView({ w, idx, now, timer, update, setTimer }: ExercisePr
         {move?.reps !== undefined && !v.done && <div className="text-2xl text-[var(--muted)]">{move.reps} reps</div>}
       </div>
       <TimerFace v={v} sub={`Round ${v.phase?.round ?? p.rounds} of ${p.rounds}${next && next.moveIndex !== undefined ? ` · next: ${p.moves[next.moveIndex].name}` : ""}`} />
-      {!v.done && <TimerControls state={state} now={now} onChange={setTimer} onStart={() => fireCue("WORK", settings)} doneLabel={v.waiting ? "Done ✓" : "Skip"} />}
+      {!v.done && <TimerControls state={state} now={now} onChange={setTimer} onStart={() => fireCue("WORK", settings)} doneLabel={v.waiting ? "Done ✓" : "Skip"} waiting={v.waiting} />}
       <ol className="space-y-1 text-[var(--muted)]">
         {p.moves.map((m, i) => (
           <li key={i} className={move === m ? "font-semibold text-[var(--text)]" : ""}>{i + 1}. {m.name} — {m.reps !== undefined ? `${m.reps} reps` : `${m.sec}s`}</li>

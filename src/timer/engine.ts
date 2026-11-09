@@ -33,6 +33,15 @@ export function circuitPhases(rounds: number, moves: CircuitMove[], restSec?: Se
   return out;
 }
 
+const STOPWATCH_SEC = 24 * 3600;
+/** A cardio stopwatch: one very long WORK phase; elapsed time is the result. */
+export function stopwatchPhases(): Phase[] {
+  return [{ label: "WORK", sec: STOPWATCH_SEC, round: 1 }];
+}
+export function isStopwatch(s: TimerState): boolean {
+  return s.phases.length === 1 && s.phases[0].label === "WORK" && s.phases[0].sec === STOPWATCH_SEC;
+}
+
 export function restPhases(sec: Seconds): Phase[] {
   return [{ label: "REST_TIMER", sec, round: 1 }];
 }
@@ -90,7 +99,7 @@ function withPhaseSec(s: TimerState, index: number, sec: Seconds): TimerState {
 
 export function addSeconds(s: TimerState, sec: number, now: number): TimerState {
   const v = view(s, now);
-  if (v.done || !v.phase) return s;
+  if (v.done || !v.phase || v.waiting) return s; // a rep move waits for Done; extra time means nothing there
   return withPhaseSec(s, v.index, Math.max(0.001, v.phase.sec + sec));
 }
 
@@ -107,9 +116,12 @@ function cueFor(label: Phase["label"]): Cue {
   return label === "REST" || label === "REST_TIMER" ? "REST" : "WORK";
 }
 
-/** Cues to fire for the clock moving from prevNow to now. Only the latest event; missed ones are not replayed. */
+/** Longer than this between ticks means the app was asleep (phone locked, tab hidden). */
+export const MAX_TICK_GAP_MS = 1500;
+
+/** Cues to fire for the clock moving from prevNow to now. Missed cues are never replayed: after a sleep, nothing fires. */
 export function crossedCues(s: TimerState, prevNow: number, now: number): Cue[] {
-  if (s.startedAt === null) return [];
+  if (s.startedAt === null || now - prevNow > MAX_TICK_GAP_MS) return [];
   const a = view(s, prevNow);
   const b = view(s, now);
   if (b.done) return a.done ? [] : ["END"];

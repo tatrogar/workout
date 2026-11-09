@@ -21,6 +21,7 @@ function clean(line: string): string {
     .replace(/[‘’]/g, "'")
     .replace(/[“”]/g, '"')
     .replace(/(\d)\s*[×xX]\s*(?=\d|bw)/g, "$1x")
+    .replace(/(\d\s*(?:lbs?|kgs?))\s*[×xX]\s*(?=\d)/gi, "$1x")
     .replace(/(^|[\s,:])(bw)\s*[×xX]\s*(?=\d)/gi, "$1bwx")
     .replace(/\s+/g, " ")
     .trim();

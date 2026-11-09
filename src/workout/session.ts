@@ -1,5 +1,5 @@
 import type { Plan } from "../plan/types";
-import type { TimerState } from "../timer/engine";
+import { elapsedMs, isStopwatch, type TimerState } from "../timer/engine";
 import type { ExerciseLog, ExerciseStatus, LoggedSet, Workout } from "./types";
 
 export function newId(): string {
@@ -103,13 +103,22 @@ export function setTimer(w: Workout, timer: { exerciseIndex: number; state: Time
   return { ...w, timer };
 }
 
+/** Before a timer is dropped or replaced: a running cardio stopwatch writes its time into the log. */
+export function settleTimer(w: Workout, now: number): Workout {
+  const t = w.timer;
+  if (!t || !isStopwatch(t.state) || t.state.startedAt === null) return w;
+  if (w.exercises[t.exerciseIndex]?.planned.kind !== "cardio") return w;
+  const secs = Math.round(elapsedMs(t.state, now) / 1000);
+  return setTimer(setCardio(w, t.exerciseIndex, { durationSec: secs }), undefined);
+}
+
 export function finish(w: Workout, now: Date, notes?: string): Workout {
-  const { timer: _t, currentIndex: _c, ...rest } = w;
+  const { timer: _t, currentIndex: _c, ...rest } = settleTimer(w, now.getTime());
   return {
     ...rest,
     finishedAt: now.toISOString(),
     notes: notes || w.notes,
-    exercises: w.exercises.map(withStatus),
+    exercises: rest.exercises.map(withStatus),
   };
 }
 
