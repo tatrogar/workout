@@ -3,6 +3,10 @@ import { FlashOverlay } from "./components/Flash";
 import { useHashRoute, type RoutePath } from "./router";
 import { useData } from "./store/data";
 import { Finish } from "./screens/Finish";
+import { History, WorkoutDetail } from "./screens/History";
+import { Settings } from "./screens/Settings";
+import { TemplateEditor, Templates } from "./screens/Templates";
+import { ExerciseTrend, Trends } from "./screens/Trends";
 import { Paste } from "./screens/Paste";
 import { Start } from "./screens/Start";
 import { Workout } from "./screens/Workout";
@@ -16,8 +20,14 @@ const NAV: { to: string; label: string; match: string }[] = [
 ];
 
 function screen(path: RoutePath, params: Record<string, string>): ReactNode {
-  void params;
   switch (path) {
+    case "/history": return <History />;
+    case "/history/:id": return <WorkoutDetail key={params.id} id={params.id} />;
+    case "/templates": return <Templates />;
+    case "/templates/:id": return <TemplateEditor key={params.id} id={params.id} />;
+    case "/trends": return <Trends />;
+    case "/trends/:name": return <ExerciseTrend key={params.name} name={params.name} />;
+    case "/settings": return <Settings />;
     case "/paste": return <Paste />;
     case "/workout": return <Workout />;
     case "/finish": return <Finish />;

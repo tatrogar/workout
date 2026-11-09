@@ -107,3 +107,8 @@ export function weeklySeries(ws: Workout[], now: Date, weeks = 12): { weekStart:
   }
   return buckets;
 }
+
+/** The one number a sparkline shows. */
+export function primaryValue(v: Record<string, number>): number {
+  return v.topWeight ?? v.reps ?? v.done ?? v.distance ?? v.minutes ?? 0;
+}

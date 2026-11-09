@@ -81,3 +81,14 @@ describe("weeklySeries", () => {
     expect(s[0]).toEqual({ weekStart: "2026-08-24", workouts: 0, minutes: 0 });
   });
 });
+
+import { primaryValue } from "../../src/trends/series";
+describe("primaryValue", () => {
+  it("picks the headline number per kind", () => {
+    expect(primaryValue({ topWeight: 185, volume: 2590 })).toBe(185);
+    expect(primaryValue({ reps: 24 })).toBe(24);
+    expect(primaryValue({ done: 6, planned: 8 })).toBe(6);
+    expect(primaryValue({ minutes: 22, distance: 2.1, paceMinPer: 10.5 })).toBe(2.1);
+    expect(primaryValue({ minutes: 30 })).toBe(30);
+  });
+});
