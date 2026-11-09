@@ -94,3 +94,12 @@ describe("reducers", () => {
     ]);
   });
 });
+
+import { setHoldsDone } from "../../src/workout/session";
+describe("setHoldsDone", () => {
+  it("marks the first n holds done", () => {
+    const w = setHoldsDone(make(), 4, 2);
+    expect(w.exercises[4].holds!.map((h) => h.done)).toEqual([true, true, false]);
+    expect(exerciseStatus(w.exercises[4])).toBe("partial");
+  });
+});

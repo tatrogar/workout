@@ -118,3 +118,9 @@ export function crossedCues(s: TimerState, prevNow: number, now: number): Cue[] 
   for (const k of [1, 2, 3]) if (b.remainingSec <= k && a.remainingSec > k) return ["WARN"];
   return [];
 }
+
+/** How many phases with this label (and optional filter) have fully finished by `now`. */
+export function completedPhases(s: TimerState, now: number, label: Phase["label"], filter: (p: Phase) => boolean = () => true): number {
+  const v = view(s, now);
+  return s.phases.slice(0, v.index).filter((p) => p.label === label && filter(p)).length;
+}

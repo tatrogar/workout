@@ -80,3 +80,18 @@ describe("crossedCues", () => {
     expect(crossedCues(t, T0 + 5 * S, T0 + 95 * S)).toEqual(["WORK"]);
   });
 });
+
+import { completedPhases } from "../../src/timer/engine";
+describe("completedPhases", () => {
+  it("counts finished phases of a label", () => {
+    const t = start(newTimer(intervalPhases(3, 20, 10)), T0);
+    expect(completedPhases(t, T0 + 5 * S, "WORK")).toBe(0);
+    expect(completedPhases(t, T0 + 25 * S, "WORK")).toBe(1);
+    expect(completedPhases(t, T0 + 999 * S, "WORK")).toBe(3);
+  });
+  it("counts finished circuit rounds by the last move", () => {
+    const c = start(newTimer(circuitPhases(2, [{ name: "a", sec: 10 }, { name: "b", sec: 10 }], 5)), T0);
+    expect(completedPhases(c, T0 + 15 * S, "MOVE", (p) => p.moveIndex === 1)).toBe(0);
+    expect(completedPhases(c, T0 + 21 * S, "MOVE", (p) => p.moveIndex === 1)).toBe(1);
+  });
+});

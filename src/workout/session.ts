@@ -112,3 +112,8 @@ export function finish(w: Workout, now: Date, notes?: string): Workout {
     exercises: w.exercises.map(withStatus),
   };
 }
+
+/** Timer-driven: the first n holds are done (never un-checks ones the owner ticked by hand). */
+export function setHoldsDone(w: Workout, exIdx: number, n: number): Workout {
+  return mapEx(w, exIdx, (log) => ({ ...unskip(log), holds: log.holds?.map((h, k) => (k < n ? { ...h, done: true } : h)) }));
+}
