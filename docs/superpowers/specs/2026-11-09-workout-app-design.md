@@ -1,7 +1,7 @@
 # Workout app — design
 
 Date: 2026-11-09
-Status: draft for review
+Status: approved 2026-11-09
 
 ## Purpose
 
@@ -19,6 +19,9 @@ feedback. Claude lives in a normal chat; the app has no AI in it.
 - Log strength, intervals, circuits/holds, cardio, and other (mobility, sport, class).
 - No effort/RPE for now, but keep room for it.
 - Pounds by default.
+- Graphs showing trends where they apply.
+- The screen flashes along with the chime and vibration when a timer or
+  interval cue fires.
 
 **Assumptions (not stated, chosen as defaults)**
 
@@ -49,7 +52,9 @@ Routes are hash-based (`#/...`) so GitHub Pages needs no rewrite rules.
 | `#/history/:id` | **Workout detail.** Read-only view with Edit and Delete. |
 | `#/templates` | **Templates.** Saved plans; create, edit, duplicate, delete, start. |
 | `#/templates/:id` | **Template editor.** Edit as plan text (same format as paste) — one editor, one parser, no separate form UI. |
-| `#/settings` | **Settings.** Units (lb/kg), sound on/off, vibration on/off, Export, Copy plan instructions for Claude, Import a backup. |
+| `#/trends` | **Trends.** Weekly bars at the top, then every exercise with its graph. Merge two exercise names into one. |
+| `#/trends/:name` | **Exercise trend.** One exercise's graph(s) and its session list. |
+| `#/settings` | **Settings.** Units (lb/kg), sound on/off, vibration on/off, flash on/off, Export, Copy plan instructions for Claude, Import a backup. |
 
 ### Workout screen
 
@@ -74,7 +79,39 @@ Every exercise: a notes field, Skip, and (where it makes sense) Add set.
   distance. Records duration and distance.
 - **Other** — target duration shown, a Done checkbox, optional actual duration.
 
+**Cues.** Every timer event fires three cues together, each with its own
+setting (all on by default): a chime, a vibration, and a full-screen color
+flash (~300 ms). Colors: green when WORK starts, blue when REST starts, white
+for the 3-2-1 warning and when a rest timer ends. The flash is a single pulse,
+not strobing.
+
 Leaving the workout screen does not end the workout; Start shows Resume.
+
+## Trends
+
+Graphs match exercises by name (case-insensitive, trimmed), after applying any
+merges the owner has made.
+
+| Exercise kind | Graph |
+|---|---|
+| Strength | Heaviest weight per workout (line), total volume weight×reps (second line) |
+| Intervals, hold | Rounds/sets completed vs. planned per session |
+| Circuit | Rounds completed vs. planned per session |
+| Cardio | Distance per session, and pace (min per mi/km) when distance was logged |
+| Other | Minutes per session |
+| Overall | Workouts per week and total minutes per week, last 12 weeks (bars) |
+
+- An exercise needs 2+ sessions to show a line; with 1 it shows the single
+  value.
+- Workout detail shows a small sparkline per exercise next to its result.
+- **Merging names:** on Trends, pick a name and "merge into" another. Stored as
+  an alias map (`"back squat" → "squat"`); workouts themselves are not
+  rewritten, so it can be undone. Aliases are included in the export.
+- The instructions for Claude ask it to reuse exact exercise names from the
+  owner's history.
+- Charts are small hand-drawn SVG components (no chart library): line, bars,
+  sparkline. Readable in light and dark, labeled axes, tap a point for its
+  value.
 
 ## Plan format
 
@@ -133,8 +170,9 @@ naming the line number, the line, and what was expected (e.g.
 until the plan parses cleanly.
 
 **Instructions for Claude.** Settings → *Copy plan instructions for Claude*
-copies a short text: what the app is, the format above with the example, and
-"reply with only the plan in a code block." The owner pastes it into a chat
+copies a short text: what the app is, the format above with the example,
+"reuse exact exercise names from my history," and "reply with only the plan
+in a code block." The owner pastes it into a chat
 once, or keeps it in a Claude Project.
 
 ## Export file
@@ -167,7 +205,7 @@ Notes: Slept badly.
 Raw data (format version 1):
 
 ```json
-{ "formatVersion": 1, "exportedAt": "...", "units": "lb", "workouts": [ ... ] }
+{ "formatVersion": 1, "exportedAt": "...", "units": "lb", "aliases": {}, "workouts": [ ... ] }
 ```
 ````
 
@@ -249,8 +287,10 @@ Units, each testable alone:
 | `plan/parse.ts` | Plan text → `Plan` or a list of line errors. Pure. | nothing |
 | `plan/instructions.ts` | The "instructions for Claude" text. | nothing |
 | `timer/engine.ts` | Countdown/stopwatch/interval sequences computed from stored start/end timestamps and pause offsets. Pure: given state and `now`, returns phase, remaining, round. | nothing |
-| `timer/cues.ts` | Beep (Web Audio) and vibrate (Vibration API), respecting settings. | browser |
-| `store/` | zustand stores with `persist` to localStorage: workouts, templates, active workout, settings, lastExportAt. Requests `navigator.storage.persist()` on first save. | zustand |
+| `timer/cues.ts` | Beep (Web Audio), vibrate (Vibration API), and screen flash, respecting settings. | browser |
+| `store/` | zustand stores with `persist` to localStorage: workouts, templates, active workout, settings, exercise aliases, lastExportAt. Requests `navigator.storage.persist()` on first save. | zustand |
+| `trends/series.ts` | `Workout[]` + aliases → per-exercise and weekly series. Pure. | nothing |
+| `charts/` | SVG `LineChart`, `BarChart`, `Sparkline`. | React |
 | `export/markdown.ts` | `Workout[]` → export file text. Pure. | nothing |
 | `export/import.ts` | Export file text → `Workout[]` (reads the JSON block). Pure. | nothing |
 | `screens/` | The routes above. | all of the above |
@@ -285,7 +325,7 @@ with signal, it runs with none.
 ## Testing
 
 - Vitest unit tests: parser (every line type, every duration form, bad input
-  and error messages), timer engine (phase/round/remaining at given times,
+  and error messages), trend series (aliases, weekly buckets, pace), timer engine (phase/round/remaining at given times,
   pause/resume), exporter (fixture workouts → expected Markdown), import
   (round-trip export → import gives the same workouts).
 - Playwright smoke test at a phone viewport against the built app: paste the
@@ -295,5 +335,5 @@ with signal, it runs with none.
 
 ## Out of scope for v1
 
-Effort/RPE (format leaves room), charts, sync between devices, GPS, accounts,
+Effort/RPE (format leaves room), estimated 1RM, sync between devices, GPS, accounts,
 any AI in the app, exercise library/autocomplete, plate calculator.
