@@ -1,0 +1,18 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --bg: #0f172a;
+  --surface: #1e293b;
+  --line: #334155;
+  --text: #f1f5f9;
+  --muted: #94a3b8;
+  --accent: #38bdf8;
+  --series-1: #38bdf8;
+  --series-2: #f59e0b;
+  --good: #22c55e;
+}
+html, body, #root { height: 100%; }
+body { background: var(--bg); color: var(--text); -webkit-tap-highlight-color: transparent; }
+input, textarea, select { color: inherit; }
