@@ -1,0 +1,254 @@
+import { parseDuration, parseWeight } from "./tokens";
+import type { CircuitMove, Exercise, Plan, Seconds, StrengthSet, Units } from "./types";
+
+export type ParseError = { line: number; text: string; message: string };
+export type ParseResult = { ok: true; plan: Plan } | { ok: false; errors: ParseError[] };
+
+const TYPE_EXAMPLES: Record<string, string> = {
+  strength: '"strength: 3x5 @ 185 lb, rest 120s" (no @ for bodyweight)',
+  sets: '"sets: 135x8, 155x6, 175x4, rest 90s" (bw x8 for bodyweight)',
+  intervals: '"intervals: 8 x 20s work / 10s rest"',
+  hold: '"hold: 3 x 45s, rest 30s"',
+  circuit: '"circuit: 3 rounds, rest 60s" followed by lines like "- Plank 45s" or "- Push-ups 10 reps"',
+  cardio: '"cardio: 20 min" or "cardio: 20 min, 2 mi"',
+  other: '"other: 10 min"',
+};
+const TYPE_LINE_HINT = 'expected a line like "strength: 3x5 @ 185 lb"';
+
+/** Normalize what Claude or a phone keyboard tends to produce. */
+function clean(line: string): string {
+  return line
+    .replace(/[‘’]/g, "'")
+    .replace(/[“”]/g, '"')
+    .replace(/(\d)\s*[×xX]\s*(?=\d|bw)/g, "$1x")
+    .replace(/(^|[\s,:])(bw)\s*[×xX]\s*(?=\d)/gi, "$1bwx")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+type Draft = { name: string; line: number; ex?: Exercise; typeLine?: number; failed?: boolean };
+
+export function parsePlan(text: string, defaultUnits: Units): ParseResult {
+  const errors: ParseError[] = [];
+  const exercises: Exercise[] = [];
+  let title: string | undefined;
+  let planUnits: Units | null = null;
+  let cur: Draft | null = null;
+
+  const err = (line: number, raw: string, message: string) => errors.push({ line, text: raw.trim(), message });
+
+  const noteUnits = (u: Units, line: number, raw: string): boolean => {
+    if (planUnits === null) { planUnits = u; return true; }
+    if (planUnits !== u) { err(line, raw, `use one unit per plan (this plan already uses ${planUnits})`); return false; }
+    return true;
+  };
+
+  const closeCurrent = () => {
+    if (!cur) return;
+    if (cur.failed) { /* already reported */ }
+    else if (!cur.ex) err(cur.line, `## ${cur.name}`, `"## ${cur.name}" has no type — ${TYPE_LINE_HINT} right after it`);
+    else if (cur.ex.kind === "circuit" && cur.ex.moves.length === 0)
+      err(cur.typeLine!, "circuit", `circuit has no moves — ${TYPE_EXAMPLES.circuit}`);
+    else exercises.push(cur.ex);
+    cur = null;
+  };
+
+  const lines = text.split(/\r?\n/);
+  lines.forEach((raw, i) => {
+    const lineNo = i + 1;
+    const line = clean(raw);
+    if (!line || /^```[\w-]*$/.test(line)) return;
+
+    let m: RegExpMatchArray | null;
+    if ((m = line.match(/^##\s+(.+)$/))) {
+      closeCurrent();
+      cur = { name: m[1].trim(), line: lineNo };
+      return;
+    }
+    if ((m = line.match(/^#\s+(.+)$/))) {
+      if (title === undefined && exercises.length === 0 && !cur) title = m[1].trim();
+      else err(lineNo, raw, 'a "# Title" line can only appear once, at the top');
+      return;
+    }
+    if (!cur) {
+      err(lineNo, raw, 'expected "## Exercise name" before this line');
+      return;
+    }
+    const draft: Draft = cur;
+
+    if ((m = line.match(/^note:\s*(.+)$/i))) {
+      if (!draft.ex) err(lineNo, raw, `put the type line first — ${TYPE_LINE_HINT}`);
+      else draft.ex.note = m[1].trim();
+      return;
+    }
+    if ((m = line.match(/^-\s*(.+)$/))) {
+      if (draft.ex?.kind !== "circuit") { err(lineNo, raw, 'a "- move" line only belongs under a "circuit:" line'); return; }
+      const move = parseMove(m[1]);
+      if (!move) err(lineNo, raw, 'expected a move like "- Plank 45s" or "- Push-ups 10 reps"');
+      else draft.ex.moves.push(move);
+      return;
+    }
+    if ((m = line.match(/^([a-z]+):\s*(.*)$/i))) {
+      const kind = m[1].toLowerCase();
+      if (!(kind in TYPE_EXAMPLES)) { err(lineNo, raw, `unknown type "${m[1]}" — use strength, sets, intervals, hold, circuit, cardio or other`); return; }
+      if (draft.ex) { err(lineNo, raw, `"${draft.name}" already has a type line — start a new "## name" for another exercise`); return; }
+      const r = parseTypeLine(kind, m[2], draft.name);
+      if ("error" in r) { err(lineNo, raw, `expected like ${TYPE_EXAMPLES[kind]}`); draft.failed = true; return; }
+      if (r.units && !noteUnits(r.units, lineNo, raw)) { draft.failed = true; return; }
+      draft.ex = r.ex;
+      draft.typeLine = lineNo;
+      return;
+    }
+    err(lineNo, raw, draft.ex ? 'unexpected line — expected "note: ...", "- move", or the next "## name"' : TYPE_LINE_HINT);
+  });
+  closeCurrent();
+
+  if (errors.length === 0 && exercises.length === 0) errors.push({ line: 1, text: "", message: 'no exercises found — start each one with "## Exercise name"' });
+  if (errors.length) return { ok: false, errors: errors.sort((a, b) => a.line - b.line) };
+  const plan: Plan = { units: planUnits ?? defaultUnits, exercises };
+  if (title !== undefined) plan.title = title;
+  return { ok: true, plan };
+}
+
+function parseMove(s: string): CircuitMove | null {
+  let m = s.match(/^(.+?)\s+(\d+)\s*reps?$/i);
+  if (m) return { name: m[1], reps: Number(m[2]) };
+  m = s.match(/^(.+?)\s+(\d+(?:\.\d+)?\s*[a-z]+|\d+:\d\d)$/i);
+  if (m) {
+    const sec = parseDuration(m[2]);
+    if (sec) return { name: m[1], sec };
+  }
+  return null;
+}
+
+/** Split "a, b, rest 90s" into parts and an optional trailing rest. */
+function splitRest(body: string): { parts: string[]; restSec?: Seconds; bad?: true } {
+  const parts = body.split(",").map((p) => p.trim()).filter(Boolean);
+  const last = parts[parts.length - 1];
+  const m = last?.match(/^rest\s+(.+)$/i);
+  if (!m) return { parts };
+  const restSec = parseDuration(m[1]);
+  if (restSec === null) return { parts, bad: true };
+  return { parts: parts.slice(0, -1), restSec };
+}
+
+type TypeResult = { ex: Exercise; units?: Units } | { error: true };
+
+function parseTypeLine(kind: string, body: string, name: string): TypeResult {
+  const { parts, restSec, bad } = splitRest(body);
+  if (bad || parts.length === 0) return { error: true };
+  const rest = restSec !== undefined ? { restSec } : {};
+  let m: RegExpMatchArray | null;
+
+  switch (kind) {
+    case "strength": {
+      if (parts.length !== 1) return { error: true };
+      m = parts[0].match(/^(\d+)x(\d+)(?:\s*@\s*(.+))?$/i);
+      if (!m) return { error: true };
+      const count = Number(m[1]);
+      const reps = Number(m[2]);
+      let weight: number | undefined;
+      let units: Units | undefined;
+      if (m[3]) {
+        const w = parseWeight(m[3], "lb");
+        if (!w) return { error: true };
+        weight = w.value;
+        if (/[a-z]/i.test(m[3])) units = w.units;
+      }
+      if (count < 1 || reps < 1) return { error: true };
+      const sets: StrengthSet[] = Array.from({ length: count }, () => (weight === undefined ? { reps } : { weight, reps }));
+      return { ex: { kind: "strength", name, ...rest, sets }, units };
+    }
+    case "sets": {
+      const sets: StrengthSet[] = [];
+      let units: Units | undefined;
+      for (const p of parts) {
+        m = p.match(/^(.+?)x(\d+)$/i);
+        if (!m) return { error: true };
+        const reps = Number(m[2]);
+        if (/^bw$/i.test(m[1].trim())) { sets.push({ reps }); continue; }
+        const w = parseWeight(m[1], "lb");
+        if (!w) return { error: true };
+        if (/[a-z]/i.test(m[1])) {
+          if (units && units !== w.units) return { error: true };
+          units = w.units;
+        }
+        sets.push({ weight: w.value, reps });
+      }
+      return { ex: { kind: "strength", name, ...rest, sets }, units };
+    }
+    case "intervals": {
+      if (parts.length !== 1 || restSec !== undefined) return { error: true };
+      m = parts[0].match(/^(\d+)\s*x\s*(.+?)\s*(?:work|on)\s*\/\s*(.+?)\s*(?:rest|off)$/i);
+      if (!m) return { error: true };
+      const workSec = parseDuration(m[2]);
+      const rs = parseDuration(m[3]);
+      if (!workSec || rs === null) return { error: true };
+      return { ex: { kind: "intervals", name, rounds: Number(m[1]), workSec, restSec: rs } };
+    }
+    case "hold": {
+      if (parts.length !== 1) return { error: true };
+      m = parts[0].match(/^(\d+)\s*x\s*(.+)$/i);
+      const holdSec = m ? parseDuration(m[2]) : null;
+      if (!m || !holdSec) return { error: true };
+      return { ex: { kind: "hold", name, sets: Number(m[1]), holdSec, ...rest } };
+    }
+    case "circuit": {
+      if (parts.length !== 1) return { error: true };
+      m = parts[0].match(/^(\d+)\s*rounds?$/i);
+      if (!m) return { error: true };
+      return { ex: { kind: "circuit", name, rounds: Number(m[1]), ...rest, moves: [] } };
+    }
+    case "cardio": {
+      if (restSec !== undefined || parts.length > 2) return { error: true };
+      const durationSec = parseDuration(parts[0]);
+      if (!durationSec) return { error: true };
+      const ex: Exercise = { kind: "cardio", name, durationSec };
+      if (parts[1]) {
+        m = parts[1].match(/^(\d+(?:\.\d+)?)\s*(mi|km)$/i);
+        if (!m) return { error: true };
+        ex.distance = Number(m[1]);
+        ex.distanceUnit = m[2].toLowerCase() as "mi" | "km";
+      }
+      return { ex };
+    }
+    case "other": {
+      if (restSec !== undefined || parts.length !== 1) return { error: true };
+      const durationSec = parseDuration(parts[0]);
+      if (!durationSec) return { error: true };
+      return { ex: { kind: "other", name, durationSec } };
+    }
+  }
+  return { error: true };
+}
+
+/** Inverse of parsePlan, for saving edited plans as templates. */
+export function planToText(plan: Plan): string {
+  const out: string[] = [];
+  if (plan.title) out.push(`# ${plan.title}`, "");
+  const u = plan.units;
+  const rest = (s?: Seconds) => (s !== undefined ? `, rest ${s}s` : "");
+  for (const ex of plan.exercises) {
+    out.push(`## ${ex.name}`);
+    switch (ex.kind) {
+      case "strength": {
+        const first = ex.sets[0];
+        const same = ex.sets.every((s) => s.reps === first.reps && s.weight === first.weight);
+        if (same) out.push(`strength: ${ex.sets.length}x${first.reps}${first.weight !== undefined ? ` @ ${first.weight} ${u}` : ""}${rest(ex.restSec)}`);
+        else out.push(`sets: ${ex.sets.map((s) => (s.weight !== undefined ? `${s.weight} ${u}x${s.reps}` : `bw x${s.reps}`)).join(", ")}${rest(ex.restSec)}`);
+        break;
+      }
+      case "intervals": out.push(`intervals: ${ex.rounds} x ${ex.workSec}s work / ${ex.restSec}s rest`); break;
+      case "hold": out.push(`hold: ${ex.sets} x ${ex.holdSec}s${rest(ex.restSec)}`); break;
+      case "circuit":
+        out.push(`circuit: ${ex.rounds} rounds${rest(ex.restSec)}`);
+        for (const mv of ex.moves) out.push(`- ${mv.name} ${mv.reps !== undefined ? `${mv.reps} reps` : `${mv.sec}s`}`);
+        break;
+      case "cardio": out.push(`cardio: ${ex.durationSec}s${ex.distance !== undefined ? `, ${ex.distance} ${ex.distanceUnit ?? "mi"}` : ""}`); break;
+      case "other": out.push(`other: ${ex.durationSec}s`); break;
+    }
+    if (ex.note) out.push(`note: ${ex.note}`);
+    out.push("");
+  }
+  return out.join("\n");
+}
