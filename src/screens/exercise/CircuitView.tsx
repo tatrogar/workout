@@ -3,7 +3,7 @@ import { Stepper } from "../../components/ui";
 import { circuitPhases, completedPhases, newTimer, view } from "../../timer/engine";
 import { fireCue } from "../../timer/cues";
 import { useSettings } from "../../store/settings";
-import { setRoundsDone } from "../../workout/session";
+import { setRoundsAtLeast, setRoundsDone } from "../../workout/session";
 import type { ExerciseProps } from "./shared";
 import { TimerControls } from "./TimerControls";
 import { TimerFace } from "./TimerFace";
@@ -16,7 +16,7 @@ export function CircuitView({ w, idx, now, timer, update, setTimer }: ExercisePr
   const last = p.kind === "circuit" ? p.moves.length - 1 : 0;
   const done = state ? completedPhases(state, now, "MOVE", (ph) => ph.moveIndex === last) : 0;
   useEffect(() => {
-    if (state?.startedAt != null && done !== (log.roundsDone ?? 0)) update((x) => setRoundsDone(x, idx, done));
+    if (state?.startedAt != null && done > (log.roundsDone ?? 0)) update((x) => setRoundsAtLeast(x, idx, done));
   }, [done]); // eslint-disable-line react-hooks/exhaustive-deps
   if (p.kind !== "circuit" || !state) return null;
   const v = view(state, now);

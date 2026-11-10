@@ -1,5 +1,5 @@
 import type { Plan } from "../plan/types";
-import { elapsedMs, isStopwatch, type TimerState } from "../timer/engine";
+import { elapsedMs, isStopwatch, view, type TimerState } from "../timer/engine";
 import type { ExerciseLog, ExerciseStatus, LoggedSet, Workout } from "./types";
 
 export function newId(): string {
@@ -81,6 +81,21 @@ export function toggleHold(w: Workout, exIdx: number, i: number): Workout {
 
 export function setRoundsDone(w: Workout, exIdx: number, n: number): Workout {
   return mapEx(w, exIdx, (log) => ({ ...unskip(log), roundsDone: Math.max(0, n) }));
+}
+
+/** Timer-driven count: never lowers a number the owner entered by hand. */
+export function setRoundsAtLeast(w: Workout, exIdx: number, n: number): Workout {
+  if ((w.exercises[exIdx]?.roundsDone ?? 0) >= n) return w;
+  return setRoundsDone(w, exIdx, n);
+}
+
+/** Name of the exercise whose interval/hold/circuit timer is running somewhere other than exIdx, else null. */
+export function runningElsewhere(w: Workout, exIdx: number, now: number): string | null {
+  const t = w.timer;
+  if (!t || t.exerciseIndex === exIdx || t.state.startedAt === null) return null;
+  if (t.state.phases[0]?.label === "REST_TIMER" || isStopwatch(t.state)) return null;
+  if (view(t.state, now).done) return null;
+  return w.exercises[t.exerciseIndex]?.planned.name ?? null;
 }
 
 export function setCardio(w: Workout, exIdx: number, v: { durationSec?: number; distance?: number }): Workout {

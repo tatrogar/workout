@@ -109,7 +109,7 @@ export function ExerciseTrend({ name }: { name: string }) {
           <h2 className="mb-2 text-lg font-semibold">Sessions</h2>
           <ul className="space-y-2">
             {sessions.map((w) => {
-              const log = w.exercises.find((l) => normalizeName(l.planned.name, aliases) === key)!;
+              const log = w.exercises.find((l) => l.status !== "skipped" && normalizeName(l.planned.name, aliases) === key)!;
               return (
                 <li key={w.id}>
                   <a href={`#/history/${w.id}`} className="block rounded-xl bg-[var(--surface)] px-4 py-2">

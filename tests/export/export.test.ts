@@ -38,7 +38,7 @@ describe("exportFileName", () => {
 describe("parseExport", () => {
   it("round-trips", () => {
     const r = parseExport(toMarkdown(WS, { "back squat": "squat" }, "lb", NOW));
-    expect(r).toEqual({ ok: true, workouts: WS, aliases: { "back squat": "squat" } });
+    expect(r).toEqual({ ok: true, workouts: WS, aliases: { "back squat": "squat" }, skipped: 0 });
   });
   it("rejects files without data", () => {
     expect(parseExport("hello").ok).toBe(false);

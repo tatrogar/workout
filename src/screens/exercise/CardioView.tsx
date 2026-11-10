@@ -18,7 +18,7 @@ export function CardioView({ w, idx, now, timer, update, setTimer }: ExercisePro
       <div className="text-center font-mono font-bold tabular-nums" style={{ fontSize: "min(22vw, 7rem)" }} data-testid="timer">{formatDuration(secs)}</div>
       <div className="grid grid-cols-2 gap-2">
         {!timer && <Button variant="primary" className="col-span-2 text-xl" onClick={() => { unlockAudio(); setTimer(start(newTimer(stopwatchPhases()), Date.now() - (log.durationSec ?? 0) * 1000)); }}>{log.durationSec ? "Continue" : "Start stopwatch"}</Button>}
-        {timer && <Button onClick={() => setTimer(running ? pause(timer, now) : resume(timer, Date.now()))}>{running ? "Pause" : "Resume"}</Button>}
+        {timer && <Button onClick={() => setTimer(running ? pause(timer, Date.now()) : resume(timer, Date.now()))}>{running ? "Pause" : "Resume"}</Button>}
         {timer && <Button variant="primary" onClick={() => { update((x) => setCardio(x, idx, { durationSec: secs })); setTimer(null); }}>Stop & save</Button>}
       </div>
       <div className="flex flex-wrap items-center justify-center gap-4">

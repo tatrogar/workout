@@ -8,7 +8,7 @@ import { navigate } from "../router";
 import { useData } from "../store/data";
 import { useSettings } from "../store/settings";
 import { describePlanned } from "../export/describe";
-import { setCurrent, setNotes, setTimer, settleTimer, skipExercise } from "../workout/session";
+import { runningElsewhere, setCurrent, setNotes, setTimer, settleTimer, skipExercise } from "../workout/session";
 import type { Workout as W } from "../workout/types";
 import { CardioView, OtherView } from "./exercise/CardioView";
 import { CircuitView } from "./exercise/CircuitView";
@@ -56,8 +56,11 @@ export function Workout() {
   const isRest = entry?.state.phases[0]?.label === "REST_TIMER";
   const exTimer = entry && entry.exerciseIndex === idx && !isRest ? entry.state : null;
   const update = (fn: (w: W) => W) => updateActive(fn);
-  const putTimer = (state: TimerState | null) =>
+  const putTimer = (state: TimerState | null) => {
+    const other = state ? runningElsewhere(active, idx, Date.now()) : null;
+    if (other && !window.confirm(`The ${other} timer is still running. Stop it and start this one?`)) return;
     updateActive((w) => setTimer(state && w.timer && w.timer.exerciseIndex !== idx ? settleTimer(w, Date.now()) : w, state ? { exerciseIndex: idx, state } : undefined));
+  };
   const go = (i: number) => {
     // Leaving an exercise drops its unstarted/finished timer, but keeps a running rest timer.
     updateActive((w) => {

@@ -2,7 +2,7 @@ import { useEffect } from "react";
 import { completedPhases, intervalPhases, newTimer, view } from "../../timer/engine";
 import { fireCue } from "../../timer/cues";
 import { useSettings } from "../../store/settings";
-import { setRoundsDone } from "../../workout/session";
+import { setRoundsAtLeast } from "../../workout/session";
 import type { ExerciseProps } from "./shared";
 import { TimerControls } from "./TimerControls";
 import { TimerFace } from "./TimerFace";
@@ -14,7 +14,7 @@ export function IntervalsView({ w, idx, now, timer, update, setTimer }: Exercise
   const state = timer ?? (p.kind === "intervals" ? newTimer(intervalPhases(p.rounds, p.workSec, p.restSec)) : null);
   const done = state ? completedPhases(state, now, "WORK") : 0;
   useEffect(() => {
-    if (state?.startedAt != null && done !== (log.roundsDone ?? 0)) update((x) => setRoundsDone(x, idx, done));
+    if (state?.startedAt != null && done > (log.roundsDone ?? 0)) update((x) => setRoundsAtLeast(x, idx, done));
   }, [done]); // eslint-disable-line react-hooks/exhaustive-deps
   if (p.kind !== "intervals" || !state) return null;
   const v = view(state, now);

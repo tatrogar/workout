@@ -28,7 +28,8 @@ export function Settings() {
     const before = data.workouts.length;
     const merged = mergeWorkouts(data.workouts, r.workouts);
     data.replaceWorkouts(merged, { ...r.aliases, ...data.aliases });
-    setMsg(`Imported. ${merged.length - before} new workout${merged.length - before === 1 ? "" : "s"}, ${merged.length} total.`);
+    const bad = r.skipped ? ` ${r.skipped} damaged workout${r.skipped === 1 ? " was" : "s were"} left out.` : "";
+    setMsg(`Imported. ${merged.length - before} new workout${merged.length - before === 1 ? "" : "s"}, ${merged.length} total.${bad}`);
   };
 
   return (
@@ -43,7 +44,7 @@ export function Settings() {
         </p>
         <Button variant="primary" className="w-full" onClick={() => void doExport()}>Export log</Button>
         <Button variant="ghost" className="mt-2 w-full" onClick={() => fileRef.current?.click()}>Import a backup…</Button>
-        <input ref={fileRef} type="file" accept=".md,text/markdown,text/plain" className="hidden" data-testid="import-file"
+        <input ref={fileRef} type="file" className="hidden" data-testid="import-file"
           onChange={(e) => { const f = e.target.files?.[0]; if (f) void doImport(f); e.target.value = ""; }} />
       </Card>
 

@@ -70,16 +70,31 @@ function values(log: ExerciseLog, from: Units, to: Units): Record<string, number
   }
 }
 
+/** One workout can list an exercise more than once: max the top weight, add up everything else. */
+function combine(vs: Record<string, number>[]): Record<string, number> | null {
+  if (!vs.length) return null;
+  if (vs.length === 1) return vs[0];
+  const out: Record<string, number> = {};
+  for (const v of vs) {
+    for (const [k, n] of Object.entries(v)) {
+      if (k === "paceMinPer") continue;
+      out[k] = k === "topWeight" ? Math.max(out[k] ?? -Infinity, n) : round1((out[k] ?? 0) + n);
+    }
+  }
+  if (out.distance > 0 && out.minutes !== undefined) out.paceMinPer = out.minutes / out.distance;
+  return out;
+}
+
 export function exerciseSeries(ws: Workout[], key: string, aliases: Record<string, string>, units: Units): { kind: ExerciseKind | null; points: SeriesPoint[] } {
   let kind: ExerciseKind | null = null;
   const points: SeriesPoint[] = [];
   const chron = newestFirst(finished(ws)).reverse();
   for (const w of chron) {
-    const log = w.exercises.find((l) => l.status !== "skipped" && normalizeName(l.planned.name, aliases) === key);
-    if (!log) continue;
-    kind ??= log.planned.kind;
-    if (log.planned.kind !== kind) continue;
-    const v = values(log, w.units, units);
+    const logs = w.exercises.filter((l) => l.status !== "skipped" && normalizeName(l.planned.name, aliases) === key);
+    if (!logs.length) continue;
+    kind ??= logs[0].planned.kind;
+    const same = logs.filter((l) => l.planned.kind === kind);
+    const v = combine(same.map((l) => values(l, w.units, units)).filter((x): x is Record<string, number> => x !== null));
     if (v) points.push({ date: localDate(new Date(w.startedAt)), workoutId: w.id, values: v });
   }
   return { kind, points };

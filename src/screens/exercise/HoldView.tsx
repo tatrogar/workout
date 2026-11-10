@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { Check } from "../../components/ui";
 import { completedPhases, holdPhases, newTimer, view } from "../../timer/engine";
 import { fireCue } from "../../timer/cues";
@@ -14,8 +14,11 @@ export function HoldView({ w, idx, now, timer, update, setTimer }: ExerciseProps
   const settings = useSettings();
   const state = timer ?? (p.kind === "hold" ? newTimer(holdPhases(p.sets, p.holdSec, p.restSec)) : null);
   const done = state ? completedPhases(state, now, "HOLD") : 0;
+  // Only holds the timer finishes while this screen is open get ticked, so an untick survives leaving and coming back.
+  const applied = useRef(done);
   useEffect(() => {
-    if (state?.startedAt != null && done > 0) update((x) => setHoldsDone(x, idx, done));
+    if (state?.startedAt != null && done > applied.current) update((x) => setHoldsDone(x, idx, done));
+    applied.current = done;
   }, [done]); // eslint-disable-line react-hooks/exhaustive-deps
   if (p.kind !== "hold" || !state) return null;
   const v = view(state, now);

@@ -55,10 +55,21 @@ export function parsePlan(text: string, defaultUnits: Units): ParseResult {
   };
 
   const lines = text.split(/\r?\n/);
+  // If the plan is in a fenced block (``` or ~~~), read only inside the first one; chat text around it is ignored.
+  const isFence = (l: string) => /^(```|~~~)[\w-]*$/.test(clean(l));
+  const open = lines.findIndex(isFence);
+  let from = 0;
+  let to = lines.length;
+  if (open >= 0) {
+    from = open + 1;
+    const close = lines.findIndex((l, i) => i > open && isFence(l));
+    if (close >= 0) to = close;
+  }
   lines.forEach((raw, i) => {
+    if (i < from || i >= to) return;
     const lineNo = i + 1;
     const line = clean(raw);
-    if (!line || /^```[\w-]*$/.test(line)) return;
+    if (!line) return;
 
     let m: RegExpMatchArray | null;
     if ((m = line.match(/^##\s+(.+)$/))) {
@@ -206,10 +217,10 @@ function parseTypeLine(kind: string, body: string, name: string): TypeResult {
       if (!durationSec) return { error: true };
       const ex: Exercise = { kind: "cardio", name, durationSec };
       if (parts[1]) {
-        m = parts[1].match(/^(\d+(?:\.\d+)?)\s*(mi|km)$/i);
+        m = parts[1].match(/^(\d+(?:\.\d+)?)\s*(mi|miles?|km|kms|kilometers?|kilometres?)$/i);
         if (!m) return { error: true };
         ex.distance = Number(m[1]);
-        ex.distanceUnit = m[2].toLowerCase() as "mi" | "km";
+        ex.distanceUnit = m[2].toLowerCase().startsWith("k") ? "km" : "mi";
       }
       return { ex };
     }

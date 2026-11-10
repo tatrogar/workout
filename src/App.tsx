@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { ErrorBoundary } from "./components/ErrorBoundary";
 import { FlashOverlay } from "./components/Flash";
 import { useHashRoute, type RoutePath } from "./router";
 import { useData } from "./store/data";
@@ -45,7 +46,9 @@ export default function App() {
       {storageError && (
         <div className="bg-rose-800 px-4 py-2 text-sm">Couldn't save to this phone (storage full). Export your log now from Settings.</div>
       )}
-      <main className={`flex-1 px-4 pt-4 ${hideNav ? "pb-6" : "pb-24"}`}>{screen(route.path, route.params)}</main>
+      <main className={`flex-1 px-4 pt-4 ${hideNav ? "pb-6" : "pb-24"}`}>
+        <ErrorBoundary resetKey={window.location.hash}>{screen(route.path, route.params)}</ErrorBoundary>
+      </main>
       {!hideNav && (
         <nav className="fixed inset-x-0 bottom-0 z-30 border-t border-slate-700 bg-slate-900 pb-[env(safe-area-inset-bottom)]">
           <div className="mx-auto flex max-w-xl">

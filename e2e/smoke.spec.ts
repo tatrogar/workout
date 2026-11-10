@@ -66,3 +66,40 @@ test("reloading mid-rest resumes the same exercise and timer", async ({ page }) 
   await expect(page.getByRole("checkbox", { name: "Set 1 done" })).toHaveAttribute("aria-checked", "true");
   await expect(page.getByTestId("rest-timer")).toContainText(/1:(1\d|2\d|30)/);
 });
+
+test("a hold you untick stays unticked when you come back", async ({ page }) => {
+  await startPlan(page);
+  for (let i = 0; i < 4; i++) await page.getByRole("button", { name: "Next ›" }).click();
+  await expect(page.getByRole("heading", { name: "Plank" })).toBeVisible();
+  await page.getByRole("button", { name: "Start", exact: true }).click();
+  await page.clock.runFor(50_000);
+  await expect(page.getByRole("checkbox", { name: "Hold 1 done" })).toHaveAttribute("aria-checked", "true");
+  await page.getByRole("checkbox", { name: "Hold 1 done" }).click();
+  await page.getByRole("button", { name: "‹ Prev" }).click();
+  await page.getByRole("button", { name: "Next ›" }).click();
+  await expect(page.getByRole("checkbox", { name: "Hold 1 done" })).toHaveAttribute("aria-checked", "false");
+});
+
+test("starting a timer while another runs asks first", async ({ page }) => {
+  await startPlan(page);
+  for (let i = 0; i < 3; i++) await page.getByRole("button", { name: "Next ›" }).click();
+  await page.getByRole("button", { name: "Start", exact: true }).click();
+  await page.getByRole("button", { name: "Next ›" }).click();
+  let asked = "";
+  page.once("dialog", (d) => { asked = d.message(); void d.dismiss(); });
+  await page.getByRole("button", { name: "Start", exact: true }).click();
+  expect(asked).toContain("Tabata");
+  await expect(page.getByRole("button", { name: "Start", exact: true })).toBeVisible();
+});
+
+test("a corrupted saved workout shows a way out, not a blank page", async ({ page }) => {
+  await page.addInitScript(() => {
+    localStorage.setItem("workout.data", JSON.stringify({ version: 1, state: {
+      workouts: [{ id: "bad", title: "Bad", startedAt: "2026-11-01T12:00:00Z", finishedAt: "2026-11-01T13:00:00Z", units: "lb", planText: "", exercises: [{ status: "done" }] }],
+      templates: [], active: null, aliases: {}, lastExportAt: null } }));
+  });
+  await page.goto("#/history/bad");
+  await expect(page.getByRole("heading", { name: "This screen hit a problem" })).toBeVisible();
+  await page.getByRole("link", { name: "Back to Start" }).click();
+  await expect(page.getByRole("heading", { name: "Workout" })).toBeVisible();
+});

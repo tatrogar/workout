@@ -12,7 +12,7 @@ export function TimerControls({ state, now, onChange, onStart, doneLabel, waitin
         <Button variant="primary" className="col-span-3 text-xl" onClick={() => { unlockAudio(); onChange(start(state, Date.now())); onStart?.(); }}>Start</Button>
       ) : (
         <>
-          <Button onClick={() => { unlockAudio(); onChange(running ? pause(state, now) : resume(state, Date.now())); }}>{running ? "Pause" : "Resume"}</Button>
+          <Button onClick={() => { unlockAudio(); onChange(running ? pause(state, Date.now()) : resume(state, Date.now())); }}>{running ? "Pause" : "Resume"}</Button>
           <Button disabled={waiting} onClick={() => onChange(addSeconds(state, 15, now))}>+15s</Button>
           <Button onClick={() => onChange(skip(state, now))}>{doneLabel ?? "Skip"}</Button>
         </>
