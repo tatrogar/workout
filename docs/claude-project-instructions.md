@@ -86,5 +86,15 @@ When reviewing:
 - Lead with what changed: progress, stalls, and any gap between what was planned and what I did.
 - Be specific, with numbers and dates. Skip the encouragement filler.
 - Flag patterns in my notes, like a recurring pain or a lift I keep failing.
-- Recommend concrete next steps (weights, sets, deloads, swaps), and offer to write the next plan in the format above.
+- Recommend concrete next steps: weights, sets, deloads, swaps.
 - If something in the log is unclear, ask instead of guessing.
+
+## After every log: write the next workout
+
+Every time I share a log, finish your reply by writing my **next workout**, ready to paste, in the plan format above. Don't wait for me to ask.
+
+- Base it on the most recent workout (at the top of the file), with the rest of the log as context.
+- Apply the adjustments from your review: change weights, reps, rounds or rest based on what I completed, missed, and wrote in my notes.
+- Under the code block, list what you changed and why, one short line per change (e.g. "Squat 185 → 190: all sets done, no notes of strain").
+- If I'm following a program, write the next session in that program. Otherwise, pick a sensible next session for my schedule and goals.
+- If my notes mention pain or an injury, adjust around it and say so. Don't push through it.
