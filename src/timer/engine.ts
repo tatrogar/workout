@@ -1,7 +1,27 @@
-import type { CircuitMove, Seconds } from "../plan/types";
+import type { CircuitMove, Seconds, Side } from "../plan/types";
 
-/** sec 0 means "wait for Done" (a rep-count move). */
-export type Phase = { label: "WORK" | "REST" | "HOLD" | "MOVE" | "REST_TIMER" | "READY"; sec: Seconds; round: number; moveIndex?: number };
+/** sec 0 means "wait for Done" (a rep-count move).
+ *  side/part mark the two halves of a per-side move: part 1 is the first side, part 2 the second. */
+export type Phase = {
+  label: "WORK" | "REST" | "HOLD" | "MOVE" | "REST_TIMER" | "READY" | "SWITCH";
+  sec: Seconds;
+  round: number;
+  moveIndex?: number;
+  side?: Side;
+  part?: 1 | 2;
+};
+export type SideOptions = { first: Side; switchSec: Seconds };
+export const DEFAULT_SIDES: SideOptions = { first: "L", switchSec: 5 };
+
+const other = (s: Side): Side => (s === "L" ? "R" : "L");
+
+/** First side, a switch prep (if any), second side — each phase built by `make`. */
+function bothSides(make: (side: Side, part: 1 | 2) => Phase, round: number, o: SideOptions, moveIndex?: number): Phase[] {
+  const out = [make(o.first, 1)];
+  if (o.switchSec > 0) out.push({ label: "SWITCH", sec: o.switchSec, round, ...(moveIndex !== undefined ? { moveIndex } : {}) });
+  out.push(make(other(o.first), 2));
+  return out;
+}
 export type TimerState = { phases: Phase[]; startedAt: number | null; pausedAt: number | null; pausedTotalMs: number };
 export type TimerView = { index: number; phase: Phase | null; remainingSec: number; done: boolean; waiting: boolean };
 export type Cue = "WORK" | "REST" | "WARN" | "END";
@@ -15,21 +35,23 @@ export function intervalPhases(rounds: number, workSec: Seconds, restSec: Second
   return out;
 }
 
-export function holdPhases(sets: number, holdSec: Seconds, restSec?: Seconds): Phase[] {
+export function holdPhases(sets: number, holdSec: Seconds, restSec?: Seconds, perSide = false, o: SideOptions = DEFAULT_SIDES): Phase[] {
   const out: Phase[] = [];
   for (let r = 1; r <= sets; r++) {
-    out.push({ label: "HOLD", sec: holdSec, round: r });
+    if (perSide) out.push(...bothSides((side, part) => ({ label: "HOLD", sec: holdSec, round: r, side, part }), r, o));
+    else out.push({ label: "HOLD", sec: holdSec, round: r });
     if (r < sets && restSec) out.push({ label: "REST", sec: restSec, round: r });
   }
   return out;
 }
 
-export function circuitPhases(rounds: number, moves: CircuitMove[], restSec?: Seconds, moveRestSec?: Seconds): Phase[] {
+export function circuitPhases(rounds: number, moves: CircuitMove[], restSec?: Seconds, moveRestSec?: Seconds, o: SideOptions = DEFAULT_SIDES): Phase[] {
   const out: Phase[] = [];
   for (let r = 1; r <= rounds; r++) {
     moves.forEach((m, i) => {
-      // A per-side move waits for Done: the owner times both sides themselves.
-      out.push({ label: "MOVE", sec: m.perSide ? 0 : m.sec ?? 0, round: r, moveIndex: i });
+      // A timed per-side move runs both sides hands-free; a rep move (sec 0) waits for Done.
+      if (m.perSide && m.sec) out.push(...bothSides((side, part) => ({ label: "MOVE", sec: m.sec!, round: r, moveIndex: i, side, part }), r, o, i));
+      else out.push({ label: "MOVE", sec: m.sec ?? 0, round: r, moveIndex: i });
       if (moveRestSec && i < moves.length - 1) out.push({ label: "REST", sec: moveRestSec, round: r });
     });
     if (r < rounds && restSec) out.push({ label: "REST", sec: restSec, round: r });
@@ -127,7 +149,7 @@ export function skip(s: TimerState, now: number): TimerState {
 }
 
 function cueFor(label: Phase["label"]): Cue {
-  return label === "REST" || label === "REST_TIMER" ? "REST" : "WORK";
+  return label === "REST" || label === "REST_TIMER" || label === "SWITCH" ? "REST" : "WORK";
 }
 
 /** Longer than this between ticks means the app was asleep (phone locked, tab hidden). */
@@ -149,4 +171,14 @@ export function crossedCues(s: TimerState, prevNow: number, now: number): Cue[] 
 export function completedPhases(s: TimerState, now: number, label: Phase["label"], filter: (p: Phase) => boolean = () => true): number {
   const v = view(s, now);
   return s.phases.slice(0, v.index).filter((p) => p.label === label && filter(p)).length;
+}
+
+export type SideResult = { round: number; moveIndex?: number; side: Side; value: Seconds };
+
+/** Seconds actually held on each finished side. A side skipped early counts the time it ran. */
+export function sideResults(s: TimerState, now: number): SideResult[] {
+  const v = view(s, now);
+  return s.phases.slice(0, v.index)
+    .filter((p) => p.side !== undefined && (p.label === "HOLD" || p.label === "MOVE"))
+    .map((p) => ({ round: p.round, ...(p.moveIndex !== undefined ? { moveIndex: p.moveIndex } : {}), side: p.side!, value: Math.round(p.sec) }));
 }

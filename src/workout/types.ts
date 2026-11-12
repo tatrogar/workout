@@ -1,7 +1,12 @@
 import type { Exercise, Seconds, Units } from "../plan/types";
+
+export type SideSet = { reps: number; done: boolean };
 import type { TimerState } from "../timer/engine";
 
-export type LoggedSet = { weight?: number; reps: number; done: boolean; at?: string };
+/** For a per-side set, `sides` holds each side; `done` means both sides are done. */
+export type LoggedSet = { weight?: number; reps: number; done: boolean; at?: string; sides?: { left: SideSet; right: SideSet } };
+/** Seconds held (timed) or reps (rep moves) on each side. */
+export type SidePair = { left?: number; right?: number };
 export type ExerciseStatus = "done" | "partial" | "skipped";
 
 export type ExerciseLog = {
@@ -11,7 +16,9 @@ export type ExerciseLog = {
   notes?: string;
   effort?: number;            // optional 1–10 rating
   sets?: LoggedSet[];         // strength
-  holds?: { sec: Seconds; done: boolean }[]; // hold
+  holds?: { sec: Seconds; done: boolean; sides?: SidePair }[]; // hold
+  /** circuit: per-side moves, one entry per move per round */
+  sideLog?: ({ round: number; moveIndex: number } & SidePair)[];
   roundsDone?: number;        // intervals, circuit
   durationSec?: Seconds;      // cardio, other
   distance?: number;          // cardio

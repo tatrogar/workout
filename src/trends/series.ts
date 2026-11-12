@@ -1,5 +1,5 @@
 import type { ExerciseKind, Units } from "../plan/types";
-import { localDate } from "../workout/session";
+import { localDate, setReps } from "../workout/session";
 import type { ExerciseLog, Workout } from "../workout/types";
 
 const LB_PER_KG = 2.20462;
@@ -48,10 +48,10 @@ function values(log: ExerciseLog, from: Units, to: Units): Record<string, number
       const done = (log.sets ?? []).filter((s) => s.done);
       if (!done.length) return null;
       const weighted = done.filter((s) => s.weight !== undefined);
-      if (!weighted.length) return { reps: done.reduce((a, s) => a + s.reps, 0) };
+      if (!weighted.length) return { reps: done.reduce((a, s) => a + setReps(s), 0) };
       return {
         topWeight: Math.max(...weighted.map((s) => convert(s.weight!, from, to))),
-        volume: round1(weighted.reduce((a, s) => a + convert(s.weight!, from, to) * s.reps, 0)),
+        volume: round1(weighted.reduce((a, s) => a + convert(s.weight!, from, to) * setReps(s), 0)),
       };
     }
     case "intervals":

@@ -27,16 +27,17 @@ Each exercise starts with `## Name`, followed by exactly one type line:
 
 | Type | Example | Use for |
 |---|---|---|
-| strength | `strength: 3x5 @ 185 lb, rest 120s` | Same weight every set. Leave out `@ ...` for bodyweight: `strength: 3x10, rest 60s` |
-| sets | `sets: 135x8, 155x6, 175x4, rest 90s` | A different weight each set. `bw x8` for a bodyweight set |
+| strength | `strength: 3x5 @ 185 lb, rest 120s` | Same weight every set. Leave out `@ ...` for bodyweight: `strength: 3x10, rest 60s`. Each side: `strength: 3x10/side @ 25 lb` |
+| sets | `sets: 135x8, 155x6, 175x4, rest 90s` | A different weight each set. `bw x8` for a bodyweight set. Each side: `/side` on every set, e.g. `sets: 25x10/side, 30x8/side` |
 | intervals | `intervals: 8 x 20s work / 10s rest` | Work/rest rounds, including run/walk: `intervals: 8 x 1 min work / 2 min rest` |
-| hold | `hold: 3 x 45s, rest 30s` | Timed holds: planks, wall sits, hangs |
+| hold | `hold: 3 x 45s, rest 30s` | Timed holds: planks, wall sits, hangs. Each side: `hold: 3 x 20s/side, rest 30s` (left, short switch, right) |
 | circuit | `circuit: 3 rounds, rest 30s between moves, rest 60s between rounds` | Both rests are optional. Followed by one line per move, timed or counted: `- Plank 45s` or `- Push-ups 10 reps`. Add `/side` for each side: `- Side plank 20s/side`, `- Lunges 8 reps/side` |
 | cardio | `cardio: 20 min, 2 mi` | Run, bike, row. The distance is optional |
 | other | `other: 10 min` | Mobility, warm-up, sport, class |
 
 Rules:
 - Durations: `45s`, `2 min`, or `1:30`. `rest ...` is optional and goes last.
+- Anything done on each side gets `/side`: side planks, lunges, split squats, single-leg or single-arm work. Never write left and right as two separate exercises.
 - Use one weight unit for the whole plan (lb unless I say otherwise).
 - One type line per exercise. To mix types, add another `## Name` section.
 - Put a warm-up first and a cooldown last, as `other:` lines. A warm-up with several parts is a `circuit: 1 round` with one line per part.
@@ -81,6 +82,7 @@ I'll share a file called `workout-log-YYYY-MM-DD.md`. Newest workouts come first
 - A ✓ means a set was completed and ✗ means it wasn't. "skipped" means I skipped the exercise.
 - "done 6/8 rounds" means I did 6 of 8 planned rounds.
 - `note:` lines and `Notes:` lines are my own comments, like pain, sleep or energy.
+- Per-side work shows each side: `L 20s R 15s` for holds, `25x L10 R8 ✓` for sets, and `Side plank round 2: L 20s, R 15s` in circuits. `–` means that side wasn't done. A gap between sides is worth pointing out.
 - `effort: 7/10` is how hard that exercise felt to me: 1 is easy, 10 is all-out. It's optional, so it won't always be there. Use it when deciding whether to add weight, hold, or back off.
 - The "Raw data" JSON block at the end has the exact numbers. Use it for any math.
 

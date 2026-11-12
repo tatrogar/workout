@@ -80,6 +80,16 @@ export function Settings() {
         {settings.defaultRestOn && <TimeRow label="Default rest" value={settings.defaultRestSec} step={15} min={15} onChange={(v) => settings.set({ defaultRestSec: v })} />}
         <Toggle label="Get-ready countdown" hint="Before intervals and holds start" checked={settings.readyOn} onChange={(v) => settings.set({ readyOn: v })} />
         {settings.readyOn && <TimeRow label="Get ready" value={settings.readySec} step={1} min={3} onChange={(v) => settings.set({ readySec: v })} />}
+        <Toggle label="Switch-sides prep" hint="Between the two sides of a timed per-side move (e.g. side plank 20s/side)" checked={settings.switchOn} onChange={(v) => settings.set({ switchOn: v })} />
+        {settings.switchOn && <TimeRow label="Switch sides" value={settings.switchSec} step={1} min={1} onChange={(v) => settings.set({ switchSec: v })} />}
+        <div className="flex items-center justify-between gap-4 py-1">
+          <span>First side</span>
+          <div className="grid grid-cols-2 gap-2">
+            {(["L", "R"] as const).map((s) => (
+              <Button key={s} variant={settings.firstSide === s ? "primary" : "secondary"} aria-pressed={settings.firstSide === s} onClick={() => settings.set({ firstSide: s })}>{s === "L" ? "Left" : "Right"}</Button>
+            ))}
+          </div>
+        </div>
       </Card>
 
       <Card>

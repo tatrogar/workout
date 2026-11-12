@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
-import type { Units } from "../plan/types";
+import type { Side, Units } from "../plan/types";
 
 export type Settings = {
   units: Units;
@@ -15,6 +15,9 @@ export type Settings = {
   defaultRestSec: number; // rest after a strength set when the plan gives none
   readyOn: boolean;
   readySec: number;       // get-ready countdown before intervals and holds
+  switchOn: boolean;
+  switchSec: number;      // prep between the two sides of a timed per-side move
+  firstSide: Side;
   // workout screen
   showEffort: boolean;
   showLastTime: boolean;
@@ -26,6 +29,7 @@ export const DEFAULT_SETTINGS: Settings = {
   units: "lb",
   sound: true, vibration: true, flash: true, voice: true, voiceDetail: true,
   defaultRestOn: true, defaultRestSec: 90, readyOn: true, readySec: 5,
+  switchOn: true, switchSec: 5, firstSide: "L",
   showEffort: true, showLastTime: true, showPlates: true, showBests: true,
 };
 
@@ -37,3 +41,8 @@ export const useSettings = create<SettingsState>()(
     { name: "workout.settings", version: 1 },
   ),
 );
+
+/** Side options for the timer engine, from settings. */
+export function sideOptions(s: Pick<Settings, "switchOn" | "switchSec" | "firstSide">): { first: Side; switchSec: number } {
+  return { first: s.firstSide, switchSec: s.switchOn ? Math.max(0, s.switchSec) : 0 };
+}

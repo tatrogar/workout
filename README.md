@@ -49,6 +49,11 @@ More you can do:
   them all to **Up next** on the Start screen.
 - **Copy for Claude:** on a finished workout, copies just that workout as text
   to paste into a chat. **Continue this workout** reopens one you finished early.
+- **Each side:** add `/side` to strength, hold, or circuit lines
+  (`strength: 3x10/side @ 25 lb`, `hold: 3 x 20s/side`, `- Side plank 20s/side`).
+  Timed sides run first side, a short "switch sides" countdown, then the other
+  side with no taps. Each side is logged separately. Settings has the switch
+  time and which side goes first.
 - **Quick timer:** intervals or a countdown with no plan and nothing logged.
 - **Settings:** switch any cue on or off (chime, vibration, flash, spoken cues),
   set the default rest and the get-ready time, and hide the effort row, last

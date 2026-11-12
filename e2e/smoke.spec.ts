@@ -245,3 +245,66 @@ test("quick timer runs without a workout", async ({ page }) => {
   await page.goto("#/history");
   await expect(page.getByText("Finished workouts show up here.")).toBeVisible();
 });
+
+const SIDE_PLAN = "# Sides\n\n## Core\ncircuit: 1 round\n- Side plank 20s/side\n- Lunges 6 reps/side\n\n## Side hold\nhold: 1 x 20s/side\n\n## Split squat\nstrength: 1x10/side @ 25 lb, rest 60s\n";
+
+test("per-side: hands-free side plank, short sides logged, export shows both", async ({ page }) => {
+  await pastePlan(page, SIDE_PLAN);
+  await page.getByRole("button", { name: "Start workout" }).click();
+  await page.getByRole("button", { name: "Start session" }).click();
+
+  // Circuit: Left 20s → Switch 5s → Right 20s with no taps, then the rep move.
+  await page.getByRole("button", { name: "Start", exact: true }).click();
+  await page.clock.runFor(10_000);
+  await expect(page.getByText("LEFT", { exact: true })).toBeVisible();
+  await page.clock.runFor(12_000);
+  await expect(page.getByText("SWITCH SIDES", { exact: true })).toBeVisible();
+  await page.clock.runFor(8_000);
+  await expect(page.getByText("RIGHT", { exact: true })).toBeVisible();
+  await page.clock.runFor(20_000);
+  await expect(page.getByTestId("rep-sides")).toBeVisible();
+  await page.getByRole("button", { name: "Right reps minus 1" }).click();
+  await page.getByRole("button", { name: "Done ✓" }).click();
+  await expect(page.getByText("Circuit done")).toBeVisible();
+
+  // Hold: Left full, Right stopped early at ~12s.
+  await page.getByRole("button", { name: "Next ›" }).click();
+  await page.getByRole("button", { name: "Start", exact: true }).click();
+  await page.clock.runFor(5_000 + 20_000 + 5_000 + 12_000);
+  await page.getByRole("button", { name: "Skip", exact: true }).click();
+  await expect(page.getByTestId("hold-1-sides")).toHaveText(/L 20 · R 1[12]/);
+
+  // Strength: Left 10, Right 8; rest starts only after both.
+  await page.getByRole("button", { name: "Next ›" }).click();
+  await page.getByRole("checkbox", { name: "Set 1 left done" }).click();
+  await expect(page.getByTestId("rest-timer")).toHaveCount(0);
+  await page.getByRole("button", { name: "Set 1 right reps minus 1" }).click();
+  await page.getByRole("button", { name: "Set 1 right reps minus 1" }).click();
+  await page.getByRole("checkbox", { name: "Set 1 right done" }).click();
+  await expect(page.getByTestId("rest-timer")).toBeVisible();
+
+  await page.getByRole("button", { name: "Finish" }).first().click();
+  await page.getByRole("button", { name: "Save workout" }).click();
+  await page.goto("#/settings");
+  const download = page.waitForEvent("download");
+  await page.getByRole("button", { name: "Export everything (backup)" }).click();
+  const text = readFileSync((await (await download).path())!, "utf8");
+  expect(text).toContain("  - moves: Side plank 20s/side, Lunges 6 reps/side");
+  expect(text).toContain("  - Side plank round 1: L 20s, R 20s");
+  expect(text).toContain("  - Lunges round 1: L 6, R 5");
+  expect(text).toMatch(/- Side hold — planned 1 x 20s\/side — done L 20s R 1[12]s/);
+  expect(text).toContain("- Split squat — planned 1x10/side @ 25, rest 60s");
+  expect(text).toContain("  - done: 25x L10 R8 ✓");
+});
+
+test("plans without /side run exactly as before", async ({ page }) => {
+  await pastePlan(page, "## Core\ncircuit: 1 round\n- Plank 20s\n## Hold\nhold: 1 x 20s");
+  await page.getByRole("button", { name: "Start workout" }).click();
+  await page.getByRole("button", { name: "Start session" }).click();
+  await page.getByRole("button", { name: "Start", exact: true }).click();
+  await page.clock.runFor(10_000);
+  await expect(page.getByText("GO", { exact: true })).toBeVisible();
+  await expect(page.getByText("SWITCH SIDES")).toHaveCount(0);
+  await page.clock.runFor(12_000);
+  await expect(page.getByText("Circuit done")).toBeVisible();
+});

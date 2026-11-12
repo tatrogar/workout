@@ -26,7 +26,7 @@ function bestOf(log: ExerciseLog, from: Units, to: Units): { value: number; unit
   }
   if (p.kind === "cardio") return log.distance && log.distance > 0 ? { value: log.distance, unit: ` ${p.distanceUnit ?? "mi"}` } : null;
   if (p.kind === "hold") {
-    const hs = (log.holds ?? []).filter((h) => h.done).map((h) => h.sec);
+    const hs = (log.holds ?? []).filter((h) => h.done).map((h) => (h.sides ? Math.max(h.sides.left ?? 0, h.sides.right ?? 0) : h.sec));
     return hs.length ? { value: Math.max(...hs), unit: "s hold" } : null;
   }
   return null;

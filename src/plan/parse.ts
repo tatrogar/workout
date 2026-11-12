@@ -152,6 +152,12 @@ function splitRest(body: string): { parts: string[]; restSec?: Seconds; moveRest
 
 type TypeResult = { ex: Exercise; units?: Units } | { error: true };
 
+const SIDE_SUFFIX = /\s*(?:\/\s*(?:side|each)|\s(?:each|per)\s+side)$/i;
+/** "10/side", "10 each side" → { text: "10", perSide: true } */
+function stripSide(s: string): { text: string; perSide: boolean } {
+  return SIDE_SUFFIX.test(s) ? { text: s.replace(SIDE_SUFFIX, "").trim(), perSide: true } : { text: s, perSide: false };
+}
+
 function parseTypeLine(kind: string, body: string, name: string): TypeResult {
   const { parts, restSec, moveRestSec, bad } = splitRest(body);
   if (bad || parts.length === 0) return { error: true };
@@ -162,10 +168,11 @@ function parseTypeLine(kind: string, body: string, name: string): TypeResult {
   switch (kind) {
     case "strength": {
       if (parts.length !== 1) return { error: true };
-      m = parts[0].match(/^(\d+)x(\d+)(?:\s*@\s*(.+))?$/i);
+      m = parts[0].match(/^(\d+)x(\d+(?:\s*\/\s*(?:side|each)|\s+(?:each|per)\s+side)?)(?:\s*@\s*(.+))?$/i);
       if (!m) return { error: true };
       const count = Number(m[1]);
-      const reps = Number(m[2]);
+      const repsSide = stripSide(m[2]);
+      const reps = Number(repsSide.text);
       let weight: number | undefined;
       let units: Units | undefined;
       if (m[3]) {
@@ -176,12 +183,16 @@ function parseTypeLine(kind: string, body: string, name: string): TypeResult {
       }
       if (count < 1 || reps < 1) return { error: true };
       const sets: StrengthSet[] = Array.from({ length: count }, () => (weight === undefined ? { reps } : { weight, reps }));
-      return { ex: { kind: "strength", name, ...rest, sets }, units };
+      return { ex: { kind: "strength", name, ...rest, sets, ...(repsSide.perSide ? { perSide: true } : {}) }, units };
     }
     case "sets": {
       const sets: StrengthSet[] = [];
       let units: Units | undefined;
-      for (const p of parts) {
+      const sides = new Set<boolean>();
+      for (const raw of parts) {
+        const sp = stripSide(raw);
+        sides.add(sp.perSide);
+        const p = sp.text;
         m = p.match(/^(.+?)x(\d+)$/i);
         if (!m) return { error: true };
         const reps = Number(m[2]);
@@ -194,7 +205,8 @@ function parseTypeLine(kind: string, body: string, name: string): TypeResult {
         }
         sets.push({ weight: w.value, reps });
       }
-      return { ex: { kind: "strength", name, ...rest, sets }, units };
+      if (sides.size > 1) return { error: true }; // every set per-side, or none
+      return { ex: { kind: "strength", name, ...rest, sets, ...(sides.has(true) ? { perSide: true } : {}) }, units };
     }
     case "intervals": {
       if (parts.length !== 1 || restSec !== undefined) return { error: true };
@@ -208,9 +220,10 @@ function parseTypeLine(kind: string, body: string, name: string): TypeResult {
     case "hold": {
       if (parts.length !== 1) return { error: true };
       m = parts[0].match(/^(\d+)\s*x\s*(.+)$/i);
-      const holdSec = m ? parseDuration(m[2]) : null;
-      if (!m || !holdSec) return { error: true };
-      return { ex: { kind: "hold", name, sets: Number(m[1]), holdSec, ...rest } };
+      const hs = m ? stripSide(m[2]) : null;
+      const holdSec = hs ? parseDuration(hs.text) : null;
+      if (!m || !hs || !holdSec) return { error: true };
+      return { ex: { kind: "hold", name, sets: Number(m[1]), holdSec, ...rest, ...(hs.perSide ? { perSide: true } : {}) } };
     }
     case "circuit": {
       if (parts.length !== 1) return { error: true };
@@ -253,12 +266,13 @@ export function planToText(plan: Plan): string {
       case "strength": {
         const first = ex.sets[0];
         const same = ex.sets.every((s) => s.reps === first.reps && s.weight === first.weight);
-        if (same) out.push(`strength: ${ex.sets.length}x${first.reps}${first.weight !== undefined ? ` @ ${first.weight} ${u}` : ""}${rest(ex.restSec)}`);
-        else out.push(`sets: ${ex.sets.map((s) => (s.weight !== undefined ? `${s.weight} ${u}x${s.reps}` : `bw x${s.reps}`)).join(", ")}${rest(ex.restSec)}`);
+        const side = ex.perSide ? "/side" : "";
+        if (same) out.push(`strength: ${ex.sets.length}x${first.reps}${side}${first.weight !== undefined ? ` @ ${first.weight} ${u}` : ""}${rest(ex.restSec)}`);
+        else out.push(`sets: ${ex.sets.map((s) => (s.weight !== undefined ? `${s.weight} ${u}x${s.reps}${side}` : `bw x${s.reps}${side}`)).join(", ")}${rest(ex.restSec)}`);
         break;
       }
       case "intervals": out.push(`intervals: ${ex.rounds} x ${ex.workSec}s work / ${ex.restSec}s rest`); break;
-      case "hold": out.push(`hold: ${ex.sets} x ${ex.holdSec}s${rest(ex.restSec)}`); break;
+      case "hold": out.push(`hold: ${ex.sets} x ${ex.holdSec}s${ex.perSide ? "/side" : ""}${rest(ex.restSec)}`); break;
       case "circuit":
         out.push(`circuit: ${ex.rounds} rounds${ex.moveRestSec !== undefined ? `, rest ${ex.moveRestSec}s between moves` : ""}${ex.restSec !== undefined ? `, rest ${ex.restSec}s between rounds` : ""}`);
         for (const mv of ex.moves) out.push(`- ${moveText(mv)}`);

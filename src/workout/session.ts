@@ -1,6 +1,7 @@
 import type { Exercise, Plan, Seconds } from "../plan/types";
 import { elapsedMs, isStopwatch, view, type TimerState } from "../timer/engine";
 import type { ExerciseLog, ExerciseStatus, LoggedSet, Workout } from "./types";
+import type { SideResult } from "../timer/engine";
 
 export function newId(): string {
   return typeof crypto !== "undefined" && "randomUUID" in crypto
@@ -33,8 +34,13 @@ function withStatus(log: ExerciseLog): ExerciseLog {
 
 export function newLog(ex: Exercise): ExerciseLog {
   const log: ExerciseLog = { planned: ex, status: "skipped" };
-  if (ex.kind === "strength") log.sets = ex.sets.map((s): LoggedSet => ({ ...s, done: false }));
-  if (ex.kind === "hold") log.holds = Array.from({ length: ex.sets }, () => ({ sec: ex.holdSec, done: false }));
+  if (ex.kind === "strength") {
+    log.sets = ex.sets.map((s): LoggedSet => ({
+      ...s, done: false,
+      ...(ex.perSide ? { sides: { left: { reps: s.reps, done: false }, right: { reps: s.reps, done: false } } } : {}),
+    }));
+  }
+  if (ex.kind === "hold") log.holds = Array.from({ length: ex.sets }, () => ({ sec: ex.holdSec, done: false, ...(ex.perSide ? { sides: {} } : {}) }));
   return log;
 }
 
@@ -74,6 +80,7 @@ export function addSet(w: Workout, exIdx: number): Workout {
   return mapEx(w, exIdx, (log) => {
     const last = log.sets?.at(-1);
     const fresh: LoggedSet = last ? { ...(last.weight !== undefined ? { weight: last.weight } : {}), reps: last.reps, done: false } : { reps: 1, done: false };
+    if (last?.sides) fresh.sides = { left: { reps: last.sides.left.reps, done: false }, right: { reps: last.sides.right.reps, done: false } };
     return { ...log, sets: [...(log.sets ?? []), fresh] };
   });
 }
@@ -225,4 +232,65 @@ export function reopen(w: Workout, now: Date): Workout {
 export function effectiveRest(ex: Exercise, s: { defaultRestOn: boolean; defaultRestSec: Seconds }): Seconds | undefined {
   if (ex.kind !== "strength") return undefined;
   return ex.restSec ?? (s.defaultRestOn && s.defaultRestSec > 0 ? s.defaultRestSec : undefined);
+}
+
+// ---- Per-side logging
+
+type SideKey = "left" | "right";
+const key = (s: "L" | "R"): SideKey => (s === "L" ? "left" : "right");
+
+/** Check or uncheck one side of a per-side strength set. The set is done once both sides are. */
+export function toggleSide(w: Workout, exIdx: number, setIdx: number, side: SideKey, now: Date): Workout {
+  return mapEx(w, exIdx, (log) => ({
+    ...unskip(log),
+    sets: log.sets?.map((s, k) => {
+      if (k !== setIdx || !s.sides) return s;
+      const sides = { ...s.sides, [side]: { ...s.sides[side], done: !s.sides[side].done } };
+      const done = sides.left.done && sides.right.done;
+      return { ...s, sides, done, at: done ? now.toISOString() : undefined };
+    }),
+  }));
+}
+
+export function editSide(w: Workout, exIdx: number, setIdx: number, side: SideKey, reps: number): Workout {
+  return mapEx(w, exIdx, (log) => ({
+    ...log,
+    sets: log.sets?.map((s, k) => (k === setIdx && s.sides ? { ...s, sides: { ...s.sides, [side]: { ...s.sides[side], reps: Math.max(0, Math.round(reps)) } } } : s)),
+  }));
+}
+
+/** Write timed side results (holds) or per-side move results (circuits) into the log. Idempotent. */
+export function recordSides(w: Workout, exIdx: number, results: SideResult[]): Workout {
+  if (!results.length) return w;
+  return mapEx(w, exIdx, (log) => {
+    if (log.planned.kind === "hold" && log.holds) {
+      const holds = log.holds.map((h, i) => {
+        const mine = results.filter((r) => r.round === i + 1 && r.moveIndex === undefined);
+        if (!mine.length) return h;
+        const sides = { ...h.sides };
+        for (const r of mine) sides[key(r.side)] = r.value;
+        return { ...h, sides, done: (sides.left ?? 0) > 0 && (sides.right ?? 0) > 0 };
+      });
+      return { ...unskip(log), holds };
+    }
+    if (log.planned.kind === "circuit") {
+      const list = [...(log.sideLog ?? [])];
+      for (const r of results) {
+        if (r.moveIndex === undefined) continue;
+        const i = list.findIndex((e) => e.round === r.round && e.moveIndex === r.moveIndex);
+        const entry = i >= 0 ? { ...list[i] } : { round: r.round, moveIndex: r.moveIndex };
+        entry[key(r.side)] = r.value;
+        if (i >= 0) list[i] = entry; else list.push(entry);
+      }
+      list.sort((a, b) => a.round - b.round || a.moveIndex - b.moveIndex);
+      return { ...unskip(log), sideLog: list };
+    }
+    return log;
+  });
+}
+
+/** Reps that count for a set: both sides' done reps for a per-side set. */
+export function setReps(s: LoggedSet): number {
+  if (!s.sides) return s.reps;
+  return (s.sides.left.done ? s.sides.left.reps : 0) + (s.sides.right.done ? s.sides.right.reps : 0);
 }

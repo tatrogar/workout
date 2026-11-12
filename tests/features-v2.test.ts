@@ -109,9 +109,9 @@ describe("4. each side", () => {
       { name: "Leg swings", reps: 10, perSide: true }, { name: "Plank", sec: 30 },
     ] });
   });
-  it("a timed per-side move waits for Done instead of running one countdown", () => {
+  it("a timed per-side move runs both sides (replaced 'wait for Done' at the owner's request)", () => {
     const p = circuitPhases(1, [{ name: "Side plank", sec: 20, perSide: true }, { name: "Plank", sec: 30 }]);
-    expect(p.map((x) => x.sec)).toEqual([0, 30]);
+    expect(p.map((x) => `${x.label}${x.sec}`)).toEqual(["MOVE20", "SWITCH5", "MOVE20", "MOVE30"]);
   });
   it("round-trips and shows in the export", () => {
     expect(plan(planToText(plan(text)))).toEqual(plan(text));

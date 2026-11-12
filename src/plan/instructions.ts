@@ -8,9 +8,11 @@ note: optional cue or reminder
 
 Type lines (pick one per exercise):
 strength: 3x5 @ 185 lb, rest 120s      (same weight every set; leave out "@ ..." for bodyweight)
-sets: 135x8, 155x6, 175x4, rest 90s     (different weight per set; "bw x8" for a bodyweight set)
+strength: 3x10/side @ 25 lb             (each side: lunges, split squats, one-arm rows)
+sets: 135x8, 155x6, 175x4, rest 90s     (different weight per set; "bw x8" for a bodyweight set; add /side to every set for each side)
 intervals: 8 x 20s work / 10s rest      (also for run/walk: 8 x 1 min work / 2 min rest)
 hold: 3 x 45s, rest 30s
+hold: 3 x 20s/side, rest 30s            (each side: left, short switch, right)
 circuit: 3 rounds, rest 30s between moves, rest 60s between rounds   (both rests optional; then one line per move:)
 - Plank 45s
 - Push-ups 10 reps
@@ -22,6 +24,7 @@ other: 10 min                           (warm-up, mobility, stretching, sport, c
 Rules:
 - Every exercise is "## Name" followed by exactly one type line. Nothing else is understood.
 - Durations: 45s, 2 min, or 1:30.
+- Anything done on each side gets /side (side planks, lunges, single-leg work). Never write left and right as two separate exercises.
 - A warm-up with several parts is a circuit with 1 round, or an "other:" line with the details in a note.
 - Use one weight unit (lb or kg) for the whole plan.
 - When I've shared my workout log, reuse exact exercise names from my history so my progress graphs line up.
