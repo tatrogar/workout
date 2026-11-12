@@ -168,3 +168,80 @@ test("effort, plates and last time", async ({ page }) => {
     await page.clock.runFor(3_600_000);
   }
 });
+
+test("exercise list: jump, add, move, remove", async ({ page }) => {
+  await pastePlan(page, WARMUP);
+  await page.getByRole("button", { name: "Start workout" }).click();
+  await page.getByRole("button", { name: "Start session" }).click();
+  await page.getByRole("button", { name: "Exercise list" }).click();
+  await page.getByRole("textbox", { name: "New exercise" }).fill("## Leg press\nstrength: 3x10 @ 200 lb");
+  await page.getByRole("button", { name: "Add after current" }).click();
+  await page.getByRole("button", { name: "Move Leg press down" }).click();
+  await page.getByRole("button", { name: "Remove Easy run" }).click();
+  await page.getByRole("button", { name: "Go to Leg press" }).click();
+  await expect(page.getByRole("heading", { name: "Leg press" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Exercise list" })).toContainText("Exercise 2 of 3");
+});
+
+test("default rest applies when the plan has none, and Settings can turn things off", async ({ page }) => {
+  await pastePlan(page, "## Squat\nstrength: 2x5 @ 185 lb");
+  await page.getByRole("button", { name: "Start workout" }).click();
+  await page.getByRole("button", { name: "Start session" }).click();
+  await page.getByRole("checkbox", { name: "Set 1 done" }).click();
+  await expect(page.getByTestId("rest-timer")).toContainText(/1:(30|2\d)/);
+  await expect(page.getByRole("radiogroup", { name: "Effort" })).toBeVisible();
+
+  await page.goto("#/settings");
+  await page.getByLabel("Default rest after a set").uncheck();
+  await page.getByLabel("Effort rating").uncheck();
+  await page.getByLabel("Plates button").uncheck();
+  await page.goto("#/workout");
+  await page.getByRole("button", { name: "Skip", exact: true }).click();
+  await page.getByRole("checkbox", { name: "Set 2 done" }).click();
+  await expect(page.getByTestId("rest-timer")).toHaveCount(0);
+  await expect(page.getByRole("radiogroup", { name: "Effort" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Plates" })).toHaveCount(0);
+});
+
+test("copy for Claude and continue a finished workout", async ({ page, context }) => {
+  await context.grantPermissions(["clipboard-read", "clipboard-write"]);
+  await pastePlan(page, "# Lift\n## Squat\nstrength: 2x5 @ 185 lb, rest 60s");
+  await page.getByRole("button", { name: "Start workout" }).click();
+  await page.getByRole("button", { name: "Start session" }).click();
+  await page.getByRole("checkbox", { name: "Set 1 done" }).click();
+  await page.clock.runFor(10 * 60_000);
+  await page.getByRole("button", { name: "Finish" }).first().click();
+  await page.getByRole("button", { name: "Save workout" }).click();
+  await page.getByRole("button", { name: "Copy for Claude" }).click();
+  const copied = await page.evaluate(() => navigator.clipboard.readText());
+  expect(copied).toContain("- Squat — planned 2x5 @ 185, rest 60s");
+  expect(copied).toContain("185x5 ✓, 185x5 ✗");
+  expect(copied).not.toContain("json");
+
+  await page.clock.runFor(60 * 60_000);
+  await page.getByRole("button", { name: "Continue this workout" }).click();
+  await expect(page.getByTestId("session-clock")).toHaveText(/^10:0\d$/);
+  await expect(page.getByRole("checkbox", { name: "Set 1 done" })).toHaveAttribute("aria-checked", "true");
+});
+
+test("a week of workouts goes to Up next", async ({ page }) => {
+  await pastePlan(page, "Here you go:\n\n```\n# Mon legs\n## Squat\nstrength: 3x5\n```\n\n```\n# Wed run\n## Run\ncardio: 20 min\n```\n");
+  await expect(page.getByTestId("week")).toContainText("Mon legs");
+  await page.getByRole("button", { name: "Save all 2 to Up next" }).click();
+  await expect(page.getByTestId("up-next")).toContainText("Wed run");
+  await page.getByRole("button", { name: "Start Mon legs" }).click();
+  await expect(page.getByRole("heading", { name: "Mon legs" })).toBeVisible();
+  await page.goto("#/");
+  await expect(page.getByTestId("up-next")).not.toContainText("Mon legs");
+});
+
+test("quick timer runs without a workout", async ({ page }) => {
+  await page.goto("#/timer");
+  await page.getByRole("button", { name: "Start", exact: true }).click();
+  await page.clock.runFor(6_000);
+  await expect(page.getByText("WORK")).toBeVisible();
+  await page.clock.runFor(8 * 30_000);
+  await expect(page.getByRole("button", { name: "Reset" })).toBeVisible();
+  await page.goto("#/history");
+  await expect(page.getByText("Finished workouts show up here.")).toBeVisible();
+});

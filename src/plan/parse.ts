@@ -277,3 +277,19 @@ export function looksLikePlan(text: string): boolean {
   const lines = text.split(/\r?\n/).map(clean);
   return lines.some((l) => /^##\s+\S/.test(l)) && lines.some((l) => /^(strength|sets|intervals|hold|circuit|cardio|other):/i.test(l));
 }
+
+/** A message with several fenced blocks (a week of workouts) → one plan text per block. Otherwise the text as is. */
+export function splitPlans(text: string): string[] {
+  const lines = text.split(/\r?\n/);
+  const isFence = (l: string) => /^(```|~~~)[\w-]*$/.test(clean(l));
+  const blocks: string[] = [];
+  let open = -1;
+  lines.forEach((l, i) => {
+    if (!isFence(l)) return;
+    if (open < 0) { open = i; return; }
+    const body = lines.slice(open + 1, i).join("\n").trim();
+    if (body) blocks.push(body);
+    open = -1;
+  });
+  return blocks.length >= 2 ? blocks : [text];
+}

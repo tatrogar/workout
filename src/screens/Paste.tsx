@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Button, Card, Title } from "../components/ui";
-import { looksLikePlan, parsePlan, type ParseResult } from "../plan/parse";
+import { looksLikePlan, parsePlan, splitPlans, type ParseResult } from "../plan/parse";
 import { describePlanned } from "../export/describe";
 import { unlockAudio } from "../timer/cues";
 import { navigate } from "../router";
@@ -27,22 +27,51 @@ export function startFromText(text: string, units: "lb" | "kg"): boolean {
 export function Paste() {
   const units = useSettings((s) => s.units);
   const saveTemplate = useData((s) => s.saveTemplate);
+  const addUpNext = useData((s) => s.addUpNext);
+  const [week, setWeek] = useState<{ text: string; result: ParseResult }[] | null>(null);
   const [text, setText] = useState(readDraft);
   const [result, setResult] = useState<ParseResult | null>(null);
   const [saved, setSaved] = useState(false);
   const [asked, setAsked] = useState(false);
 
-  const parse = () => { setResult(parsePlan(text, units)); setSaved(false); };
+  const check = (t: string) => {
+    const parts = splitPlans(t);
+    setSaved(false);
+    if (parts.length > 1) { setWeek(parts.map((p) => ({ text: p, result: parsePlan(p, units) }))); setResult(null); }
+    else { setWeek(null); setResult(parsePlan(t, units)); }
+  };
+  const parse = () => check(text);
 
   return (
     <div className="space-y-4">
       <Title>Paste plan</Title>
       <textarea className="h-64 w-full rounded-xl bg-slate-800 p-3 font-mono text-sm" placeholder={"Paste the plan Claude wrote.\n\n## Squat\nstrength: 3x5 @ 185 lb, rest 120s"}
-        value={text} onChange={(e) => { setText(e.target.value); saveDraft(e.target.value); setResult(null); }} />
+        value={text} onChange={(e) => { setText(e.target.value); saveDraft(e.target.value); setResult(null); setWeek(null); }} />
       <div className="grid grid-cols-2 gap-2">
-        <Button onClick={async () => { try { const t = await navigator.clipboard.readText(); setText(t); saveDraft(t); setResult(parsePlan(t, units)); } catch { /* no permission */ } }}>Paste from clipboard</Button>
+        <Button onClick={async () => { try { const t = await navigator.clipboard.readText(); setText(t); saveDraft(t); check(t); } catch { /* no permission */ } }}>Paste from clipboard</Button>
         <Button variant="primary" onClick={parse} disabled={!text.trim()}>Check plan</Button>
       </div>
+
+      {week && (
+        <Card className={week.every((p) => p.result.ok) ? "" : "border-rose-700"}>
+          <h2 className="mb-2 text-xl font-semibold">{week.length} workouts found</h2>
+          <ol className="mb-4 space-y-2" data-testid="week">
+            {week.map((p, i) => (
+              <li key={i}>
+                {p.result.ok
+                  ? <span>{i + 1}. {p.result.plan.title ?? `Workout ${i + 1}`} <span className="text-sm text-[var(--muted)]">· {p.result.plan.exercises.length} exercises</span></span>
+                  : <span className="text-rose-300">{i + 1}. Needs fixing: {p.result.errors.map((e) => `line ${e.line} (${e.message})`).join("; ")}</span>}
+              </li>
+            ))}
+          </ol>
+          {week.every((p) => p.result.ok)
+            ? <Button variant="primary" className="w-full" onClick={() => {
+                addUpNext(week.map((p, i) => ({ id: newId(), title: (p.result.ok && p.result.plan.title) || `Workout ${i + 1}`, planText: p.text })));
+                saveDraft(""); navigate("/");
+              }}>Save all {week.length} to Up next</Button>
+            : <p className="text-sm">Ask Claude to fix those workouts, then paste the whole message again. Line numbers count from the top of each workout's code block.</p>}
+        </Card>
+      )}
 
       {result && !result.ok && !looksLikePlan(text) && (
         <Card className="border-rose-700">

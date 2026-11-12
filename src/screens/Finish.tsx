@@ -9,7 +9,8 @@ import { personalBests } from "../trends/history";
 
 export function Finish() {
   const { active, finishActive, discardActive, workouts, aliases } = useData();
-  const units = useSettings((s) => s.units);
+  const settings = useSettings();
+  const units = settings.units;
   const [notes, setNotes] = useState(active?.notes ?? "");
   if (!active) return <div className="pt-10 text-center"><p className="mb-4">Nothing to finish.</p><LinkButton href="#/">Start</LinkButton></div>;
   const logs = active.exercises.map((l) => ({ ...l, status: exerciseStatus(l) }));
@@ -23,7 +24,7 @@ export function Finish() {
         <p className="mb-3 text-[var(--muted)]">{doneCount} of {logs.length} exercises done · {Math.round((Date.now() - Date.parse(active.startedAt)) / 60000)} min</p>
         <pre className="whitespace-pre-wrap font-sans text-sm leading-6">{logs.flatMap(describeLog).join("\n")}</pre>
       </Card>
-      {bests.length > 0 && (
+      {settings.showBests && bests.length > 0 && (
         <Card className="border-emerald-700" >
           <h2 className="mb-1 font-semibold text-emerald-300">New best{bests.length > 1 ? "s" : ""}</h2>
           <ul className="space-y-1" data-testid="bests">{bests.map((b) => <li key={b}>{b}</li>)}</ul>

@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Button, Card, Stepper, Title } from "../components/ui";
 import { Sparkline } from "../charts/Sparkline";
 import { describeDone, describePlanned } from "../export/describe";
-import { workoutMinutes } from "../export/markdown";
+import { copyForClaude, workoutMinutes } from "../export/markdown";
 import { navigate } from "../router";
 import { useData } from "../store/data";
 import { useSettings } from "../store/settings";
@@ -35,7 +35,8 @@ export function History() {
 }
 
 export function WorkoutDetail({ id }: { id: string }) {
-  const { workouts, aliases, upsertWorkout, deleteWorkout } = useData();
+  const { workouts, aliases, upsertWorkout, deleteWorkout, reopenWorkout, active } = useData();
+  const [copied, setCopied] = useState(false);
   const units = useSettings((s) => s.units);
   const found = workouts.find((w) => w.id === id);
   const [draft, setDraft] = useState<Workout | null>(null);
@@ -83,6 +84,12 @@ export function WorkoutDetail({ id }: { id: string }) {
         </div>
       ) : (
         <div className="grid grid-cols-2 gap-2">
+          <Button variant="primary" className="col-span-2" onClick={async () => {
+            try { await navigator.clipboard.writeText(copyForClaude(found)); setCopied(true); } catch { /* no permission */ }
+          }}>{copied ? "Copied ✓ — paste it into Claude" : "Copy for Claude"}</Button>
+          <Button className="col-span-2" disabled={!!active} onClick={() => { if (reopenWorkout(found.id, new Date())) navigate("/workout"); }}>
+            {active ? "Finish the workout in progress to continue this one" : "Continue this workout"}
+          </Button>
           <Button onClick={() => setDraft(found)}>Edit</Button>
           <Button variant="danger" onClick={() => { if (window.confirm("Delete this workout for good?")) { deleteWorkout(w.id); navigate("/history"); } }}>Delete</Button>
         </div>

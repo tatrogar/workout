@@ -2,20 +2,23 @@ import { useState } from "react";
 import { Button, Check, Stepper } from "../../components/ui";
 import { plates } from "../../workout/plates";
 import { newTimer, restPhases, start } from "../../timer/engine";
-import { addSet, editSet, toggleSet } from "../../workout/session";
+import { addSet, editSet, effectiveRest, toggleSet } from "../../workout/session";
+import { useSettings } from "../../store/settings";
 import type { ExerciseProps } from "./shared";
 
 export function StrengthView({ w, idx, update, setTimer }: ExerciseProps) {
   const log = w.exercises[idx];
   if (log.planned.kind !== "strength") return null;
-  const restSec = log.planned.restSec;
+  const settings = useSettings();
+  const restSec = effectiveRest(log.planned, settings);
+  const isDefaultRest = restSec !== undefined && log.planned.restSec === undefined;
   const step = w.units === "kg" ? 2.5 : 5;
   const sets = log.sets ?? [];
   const [showPlates, setShowPlates] = useState(false);
   const weights = [...new Set(sets.map((s) => s.weight).filter((x): x is number => x !== undefined))];
   return (
     <div className="space-y-2">
-      {restSec !== undefined && <p className="text-sm text-[var(--muted)]">Rest {restSec}s between sets — starts when you check a set.</p>}
+      {restSec !== undefined && <p className="text-sm text-[var(--muted)]">Rest {restSec}s between sets{isDefaultRest ? " (your default)" : ""} — starts when you check a set.</p>}
       {sets.map((s, i) => (
         <div key={i} className={`flex items-center gap-2 rounded-xl p-2 ${s.done ? "bg-emerald-950/60" : "bg-slate-800/60"}`}>
           <Check checked={s.done} label={`Set ${i + 1} done`} onChange={() => {
@@ -32,7 +35,7 @@ export function StrengthView({ w, idx, update, setTimer }: ExerciseProps) {
       ))}
       <div className="grid grid-cols-2 gap-2">
         <Button variant="ghost" onClick={() => update((x) => addSet(x, idx))}>+ Add set</Button>
-        {weights.length > 0 && <Button variant="ghost" aria-expanded={showPlates} onClick={() => setShowPlates(!showPlates)}>Plates</Button>}
+        {settings.showPlates && weights.length > 0 && <Button variant="ghost" aria-expanded={showPlates} onClick={() => setShowPlates(!showPlates)}>Plates</Button>}
       </div>
       {showPlates && (
         <ul className="rounded-xl bg-slate-800/60 p-3 text-sm" data-testid="plates">

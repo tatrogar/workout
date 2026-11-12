@@ -11,7 +11,7 @@ export function IntervalsView({ w, idx, now, timer, update, setTimer }: Exercise
   const log = w.exercises[idx];
   const p = log.planned;
   const settings = useSettings();
-  const state = timer ?? (p.kind === "intervals" ? newTimer(withReady(intervalPhases(p.rounds, p.workSec, p.restSec))) : null);
+  const state = timer ?? (p.kind === "intervals" ? newTimer(settings.readyOn && settings.readySec > 0 ? withReady(intervalPhases(p.rounds, p.workSec, p.restSec), settings.readySec) : intervalPhases(p.rounds, p.workSec, p.restSec)) : null);
   const done = state ? completedPhases(state, now, "WORK") : 0;
   useEffect(() => {
     if (state?.startedAt != null && done > (log.roundsDone ?? 0)) update((x) => setRoundsAtLeast(x, idx, done));
@@ -22,7 +22,7 @@ export function IntervalsView({ w, idx, now, timer, update, setTimer }: Exercise
   return (
     <div className="space-y-4">
       <TimerFace v={v} sub={`Round ${round} of ${p.rounds} · ${p.workSec}s on / ${p.restSec}s off`} />
-      {!v.done && <TimerControls state={state} now={now} onChange={setTimer} onStart={() => fireCue("WARN", settings)} />}
+      {!v.done && <TimerControls state={state} now={now} onChange={setTimer} onStart={() => fireCue(settings.readyOn && settings.readySec > 0 ? "WARN" : "WORK", settings)} />}
       <p className="text-center text-[var(--muted)]">Rounds done: {log.roundsDone ?? 0} / {p.rounds}</p>
     </div>
   );

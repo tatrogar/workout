@@ -1,11 +1,18 @@
 import { create, type StoreApi, type UseBoundStore } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
 import type { Template, Workout } from "../workout/types";
-import { finish } from "../workout/session";
+import { finish, reopen } from "../workout/session";
 
 export type KV = { getItem(k: string): string | null; setItem(k: string, v: string): void; removeItem(k: string): void };
 
+export type UpNext = { id: string; title: string; planText: string };
+
 export type DataState = {
+  upNext: UpNext[];
+  addUpNext(items: UpNext[]): void;
+  removeUpNext(id: string): void;
+  /** false when another workout is already in progress. */
+  reopenWorkout(id: string, now: Date): boolean;
   workouts: Workout[];
   templates: Template[];
   active: Workout | null;
@@ -52,6 +59,15 @@ export function createDataStore(kv: KV): UseBoundStore<StoreApi<DataState>> {
     persist(
       (set, get) => ({
         workouts: [],
+        upNext: [],
+        addUpNext: (items) => set({ upNext: [...get().upNext, ...items] }),
+        removeUpNext: (id) => set({ upNext: get().upNext.filter((u) => u.id !== id) }),
+        reopenWorkout: (id, now) => {
+          const w = get().workouts.find((x) => x.id === id);
+          if (!w || get().active) return false;
+          set({ active: reopen(w, now), workouts: get().workouts.filter((x) => x.id !== id) });
+          return true;
+        },
         templates: [],
         active: null,
         aliases: {},
@@ -88,7 +104,7 @@ export function createDataStore(kv: KV): UseBoundStore<StoreApi<DataState>> {
         name: "workout.data",
         version: 1,
         storage: createJSONStorage(() => safe),
-        partialize: ({ workouts, templates, active, aliases, lastExportAt }) => ({ workouts, templates, active, aliases, lastExportAt }),
+        partialize: ({ workouts, templates, active, aliases, lastExportAt, upNext }) => ({ workouts, templates, active, aliases, lastExportAt, upNext }),
       },
     ),
   );

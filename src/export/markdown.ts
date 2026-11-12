@@ -25,6 +25,21 @@ function clean(w: Workout): Workout {
   return rest;
 }
 
+/** One workout as it appears in the export: heading, notes, one entry per exercise. */
+export function workoutSection(w: Workout, units: Units): string[] {
+  const unitNote = w.units !== units ? ` · weights in ${w.units}` : "";
+  const out = [`## ${localDate(new Date(w.startedAt))} · ${w.title} · ${workoutMinutes(w)} min${unitNote}`];
+  if (w.notes) out.push(`Notes: ${w.notes}`);
+  out.push("");
+  for (const log of w.exercises) out.push(...describeLog(log));
+  return out;
+}
+
+/** Just one workout as plain text, for pasting straight into a chat. */
+export function copyForClaude(w: Workout): string {
+  return [`Workout log entry from my workout app (units: ${w.units}).`, "", ...workoutSection(w, w.units), ""].join("\n");
+}
+
 export function toMarkdown(workouts: Workout[], aliases: Record<string, string>, units: Units, now: Date): string {
   const done = workouts.filter((w) => w.finishedAt).map(clean).sort((a, b) => b.startedAt.localeCompare(a.startedAt));
   const dates = done.map((w) => localDate(new Date(w.startedAt)));
@@ -34,14 +49,7 @@ export function toMarkdown(workouts: Workout[], aliases: Record<string, string>,
     `Exported ${localDate(now)} · ${done.length} workout${done.length === 1 ? "" : "s"}${range} · units: ${units}`,
     "",
   ];
-  done.forEach((w, i) => {
-    const unitNote = w.units !== units ? ` · weights in ${w.units}` : "";
-    out.push(`## ${dates[i]} · ${w.title} · ${workoutMinutes(w)} min${unitNote}`);
-    if (w.notes) out.push(`Notes: ${w.notes}`);
-    out.push("");
-    for (const log of w.exercises) out.push(...describeLog(log));
-    out.push("");
-  });
+  for (const w of done) out.push(...workoutSection(w, units), "");
   const data = { formatVersion: FORMAT_VERSION, exportedAt: now.toISOString(), units, aliases, workouts: done };
   out.push("---", "", `Raw data (format version ${FORMAT_VERSION}):`, "", "```json", JSON.stringify(data), "```", "");
   return out.join("\n");

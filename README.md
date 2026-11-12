@@ -42,6 +42,18 @@ Live at **https://tatrogar.github.io/workout/** once deployed.
    `workout-log-YYYY-MM-DD.md`, sized for a Claude chat. **Export everything**
    is the full backup.
 
+More you can do:
+- **Change the plan mid-workout:** tap "Exercise 2 of 5 · list and edit" to jump
+  to any exercise, reorder, remove, add, or swap one.
+- **A whole week:** paste a Claude message with several code blocks and save
+  them all to **Up next** on the Start screen.
+- **Copy for Claude:** on a finished workout, copies just that workout as text
+  to paste into a chat. **Continue this workout** reopens one you finished early.
+- **Quick timer:** intervals or a countdown with no plan and nothing logged.
+- **Settings:** switch any cue on or off (chime, vibration, flash, spoken cues),
+  set the default rest and the get-ready time, and hide the effort row, last
+  time, plates button, or new-bests list.
+
 The Trends tab graphs each exercise over time, plus workouts and minutes per
 week. If the same exercise was logged under two names ("Squat" and "Back
 squat"), open one of them in Trends and merge it into the other.

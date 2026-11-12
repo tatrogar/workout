@@ -9,6 +9,7 @@ import { Settings } from "./screens/Settings";
 import { TemplateEditor, Templates } from "./screens/Templates";
 import { ExerciseTrend, Trends } from "./screens/Trends";
 import { Paste } from "./screens/Paste";
+import { QuickTimer } from "./screens/QuickTimer";
 import { Start } from "./screens/Start";
 import { Workout } from "./screens/Workout";
 
@@ -29,6 +30,7 @@ function screen(path: RoutePath, params: Record<string, string>): ReactNode {
     case "/trends": return <Trends />;
     case "/trends/:name": return <ExerciseTrend key={params.name} name={params.name} />;
     case "/settings": return <Settings />;
+    case "/timer": return <QuickTimer />;
     case "/paste": return <Paste />;
     case "/workout": return <Workout />;
     case "/finish": return <Finish />;

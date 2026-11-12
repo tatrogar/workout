@@ -1,4 +1,6 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
+import { cuePhrase } from "../timer/phrases";
+import { PlanSheet } from "./PlanSheet";
 import { Button, LinkButton } from "../components/ui";
 import { formatDuration } from "../plan/tokens";
 import { addSeconds, crossedCues, view, type TimerState } from "../timer/engine";
@@ -31,6 +33,7 @@ export function Workout() {
   const settings = useSettings();
   const now = useNow(!!active);
   const prev = useRef(now);
+  const [sheet, setSheet] = useState(false);
   useWakeLock(!!active);
 
   const entry = active?.timer;
@@ -39,7 +42,11 @@ export function Workout() {
     const before = prev.current;
     prev.current = now;
     if (!entry || !active) return;
-    for (const c of crossedCues(entry.state, before, now)) fireCue(c, settings);
+    const restTimer = entry.state.phases[0]?.label === "REST_TIMER";
+    for (const c of crossedCues(entry.state, before, now)) {
+      const say = cuePhrase(c, view(entry.state, now).phase, active.exercises[entry.exerciseIndex]?.planned, settings.voiceDetail, restTimer);
+      fireCue(c, settings, undefined, say);
+    }
     if (tickCountdown(active, now) !== active) updateActive((w) => tickCountdown(w, now));
     if (entry.state.phases[0]?.label === "REST_TIMER" && view(entry.state, now).done) {
       updateActive((w) => setTimer(w, undefined));
@@ -111,11 +118,13 @@ export function Workout() {
       </header>
 
       <div>
-        <div className="text-sm text-[var(--muted)]">Exercise {idx + 1} of {active.exercises.length}{log.status === "skipped" && log.skipped ? " · skipped" : ""}</div>
+        <button className="min-h-touch py-2 text-left text-sm text-sky-400" onClick={() => setSheet(true)} aria-label="Exercise list">
+          Exercise {idx + 1} of {active.exercises.length}{log.status === "skipped" && log.skipped ? " · skipped" : ""} · list and edit ▾
+        </button>
         <h1 className="text-3xl font-bold leading-tight">{log.planned.name}</h1>
         <div className="text-[var(--muted)]">{describePlanned(log.planned)}</div>
         {log.planned.note && <div className="mt-1 text-amber-300">{log.planned.note}</div>}
-        {prior && <div className="mt-1 text-sm text-[var(--muted)]" data-testid="last-time">Last time ({fmtDay(prior.date)}): {prior.text}</div>}
+        {settings.showLastTime && prior && <div className="mt-1 text-sm text-[var(--muted)]" data-testid="last-time">Last time ({fmtDay(prior.date)}): {prior.text}</div>}
       </div>
 
       <View w={active} idx={idx} now={now} timer={exTimer} update={update} setTimer={putTimer} />
@@ -123,7 +132,7 @@ export function Workout() {
       <textarea className="min-h-[3rem] w-full rounded-xl bg-slate-800 p-3" placeholder="Notes for this exercise"
         value={log.notes ?? ""} onChange={(e) => update((w) => setNotes(w, idx, e.target.value))} />
 
-      <div>
+      {settings.showEffort && <div>
         <div className="mb-1 text-sm text-[var(--muted)]">Effort, 1 easy to 10 all-out (optional)</div>
         <div className="grid grid-cols-10 gap-1" role="radiogroup" aria-label="Effort">
           {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((n) => (
@@ -132,7 +141,9 @@ export function Workout() {
               className={`h-11 rounded-lg text-sm font-semibold ${log.effort === n ? "bg-sky-600 text-white" : "bg-slate-800 text-[var(--muted)]"}`}>{n}</button>
           ))}
         </div>
-      </div>
+      </div>}
+
+      {sheet && <PlanSheet w={active} update={update} onClose={() => setSheet(false)} />}
 
       <div className="grid grid-cols-3 gap-2">
         <Button disabled={idx === 0} onClick={() => go(idx - 1)}>‹ Prev</Button>

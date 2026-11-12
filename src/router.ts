@@ -12,6 +12,7 @@ export const ROUTES = [
   "/trends",
   "/trends/:name",
   "/settings",
+  "/timer",
 ] as const;
 
 export type RoutePath = (typeof ROUTES)[number];

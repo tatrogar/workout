@@ -1,4 +1,4 @@
-import type { Plan } from "../plan/types";
+import type { Exercise, Plan, Seconds } from "../plan/types";
 import { elapsedMs, isStopwatch, view, type TimerState } from "../timer/engine";
 import type { ExerciseLog, ExerciseStatus, LoggedSet, Workout } from "./types";
 
@@ -31,13 +31,15 @@ function withStatus(log: ExerciseLog): ExerciseLog {
   return { ...log, status: exerciseStatus(log) };
 }
 
+export function newLog(ex: Exercise): ExerciseLog {
+  const log: ExerciseLog = { planned: ex, status: "skipped" };
+  if (ex.kind === "strength") log.sets = ex.sets.map((s): LoggedSet => ({ ...s, done: false }));
+  if (ex.kind === "hold") log.holds = Array.from({ length: ex.sets }, () => ({ sec: ex.holdSec, done: false }));
+  return log;
+}
+
 export function createWorkout(plan: Plan, planText: string, now: Date, id: string = newId()): Workout {
-  const exercises = plan.exercises.map((ex): ExerciseLog => {
-    const log: ExerciseLog = { planned: ex, status: "skipped" };
-    if (ex.kind === "strength") log.sets = ex.sets.map((s): LoggedSet => ({ ...s, done: false }));
-    if (ex.kind === "hold") log.holds = Array.from({ length: ex.sets }, () => ({ sec: ex.holdSec, done: false }));
-    return log;
-  });
+  const exercises = plan.exercises.map(newLog);
   return {
     id,
     title: plan.title ?? localDate(now),
@@ -173,4 +175,54 @@ export function finish(w: Workout, now: Date, notes?: string): Workout {
 /** Timer-driven: the first n holds are done (never un-checks ones the owner ticked by hand). */
 export function setHoldsDone(w: Workout, exIdx: number, n: number): Workout {
   return mapEx(w, exIdx, (log) => ({ ...unskip(log), holds: log.holds?.map((h, k) => (k < n ? { ...h, done: true } : h)) }));
+}
+
+// ---- Changing the plan mid-workout. Indexes shift, so any timer is saved (cardio/other) and dropped first.
+
+function restructure(w: Workout, now: number, fn: (logs: ExerciseLog[], cur: number) => { logs: ExerciseLog[]; cur: number }): Workout {
+  const base = setTimer(settleTimer(w, now), undefined);
+  const { logs, cur } = fn(base.exercises, base.currentIndex ?? 0);
+  return { ...base, exercises: logs, currentIndex: Math.max(0, Math.min(logs.length - 1, cur)) };
+}
+
+export function insertExercises(w: Workout, at: number, exercises: Exercise[], now: number): Workout {
+  if (!exercises.length) return w;
+  const i = Math.max(0, Math.min(w.exercises.length, at));
+  return restructure(w, now, (logs, cur) => ({
+    logs: [...logs.slice(0, i), ...exercises.map(newLog), ...logs.slice(i)],
+    cur: i <= cur ? cur + exercises.length : cur,
+  }));
+}
+
+export function removeExercise(w: Workout, idx: number, now: number): Workout {
+  if (w.exercises.length <= 1 || idx < 0 || idx >= w.exercises.length) return w;
+  return restructure(w, now, (logs, cur) => ({ logs: logs.filter((_, j) => j !== idx), cur: idx < cur ? cur - 1 : cur }));
+}
+
+export function moveExercise(w: Workout, idx: number, delta: number, now: number): Workout {
+  const to = idx + delta;
+  if (idx < 0 || idx >= w.exercises.length || to < 0 || to >= w.exercises.length) return w;
+  return restructure(w, now, (logs, cur) => {
+    const next = [...logs];
+    [next[idx], next[to]] = [next[to], next[idx]];
+    return { logs: next, cur: cur === idx ? to : cur === to ? idx : cur };
+  });
+}
+
+export function replaceExercise(w: Workout, idx: number, ex: Exercise, now: number): Workout {
+  if (idx < 0 || idx >= w.exercises.length) return w;
+  return restructure(w, now, (logs, cur) => ({ logs: logs.map((l, j) => (j === idx ? newLog(ex) : l)), cur }));
+}
+
+/** Put a finished workout back in progress. The session clock picks up where it stopped. */
+export function reopen(w: Workout, now: Date): Workout {
+  const { finishedAt, ...rest } = w;
+  const ran = finishedAt ? Math.max(0, Date.parse(finishedAt) - Date.parse(w.startedAt)) : 0;
+  return { ...rest, startedAt: new Date(now.getTime() - ran).toISOString(), currentIndex: 0 };
+}
+
+/** Rest after a strength set: the plan's own, else the default from Settings if that is on. */
+export function effectiveRest(ex: Exercise, s: { defaultRestOn: boolean; defaultRestSec: Seconds }): Seconds | undefined {
+  if (ex.kind !== "strength") return undefined;
+  return ex.restSec ?? (s.defaultRestOn && s.defaultRestSec > 0 ? s.defaultRestSec : undefined);
 }

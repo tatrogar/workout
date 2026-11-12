@@ -1,10 +1,11 @@
 import type { Cue } from "./engine";
 
-export type CueSettings = { sound: boolean; vibration: boolean; flash: boolean };
+export type CueSettings = { sound: boolean; vibration: boolean; flash: boolean; voice?: boolean };
 export type CueDeps = {
   beep(freq: number, ms: number, delayMs?: number): void;
   vibrate(pattern: number[]): void;
   flash(color: string): void;
+  speak?(text: string): void;
 };
 
 export const FLASH_COLORS: Record<Cue, string> = { WORK: "#22c55e", REST: "#3b82f6", WARN: "#ffffff", END: "#ffffff" };
@@ -65,9 +66,19 @@ export const browserDeps: CueDeps = {
   flash(color) {
     flashListeners.forEach((fn) => fn(color));
   },
+  speak(text) {
+    try {
+      if (typeof speechSynthesis === "undefined") return;
+      speechSynthesis.cancel();
+      const u = new SpeechSynthesisUtterance(text);
+      u.rate = 1.05;
+      speechSynthesis.speak(u);
+    } catch { /* no speech on this device */ }
+  },
 };
 
-export function fireCue(kind: Cue, settings: CueSettings, deps: CueDeps = browserDeps): void {
+export function fireCue(kind: Cue, settings: CueSettings, deps: CueDeps = browserDeps, say?: string | null): void {
+  if (settings.voice && say) deps.speak?.(say);
   if (settings.sound) for (const [f, ms, d] of SOUNDS[kind]) deps.beep(f, ms, d);
   if (settings.vibration) deps.vibrate(VIBES[kind]);
   if (settings.flash) deps.flash(FLASH_COLORS[kind]);

@@ -1,4 +1,6 @@
-import { Card, LinkButton, Title } from "../components/ui";
+import { Button, Card, LinkButton, Title } from "../components/ui";
+import { useSettings } from "../store/settings";
+import { startFromText } from "./Paste";
 import { exportDue, useData } from "../store/data";
 import { workoutMinutes } from "../export/markdown";
 import { localDate } from "../workout/session";
@@ -6,7 +8,8 @@ import { formatDuration } from "../plan/tokens";
 import { useNow } from "../timer/useNow";
 
 export function Start() {
-  const { active, workouts, lastExportAt } = useData();
+  const { active, workouts, lastExportAt, upNext, removeUpNext } = useData();
+  const units = useSettings((s) => s.units);
   const now = useNow(!!active && !active.pending);
   const due = exportDue({ workouts, lastExportAt }, new Date());
   const recent = workouts.filter((w) => w.finishedAt).slice(0, 3);
@@ -29,7 +32,22 @@ export function Start() {
       <div className="grid grid-cols-2 gap-2">
         <LinkButton href="#/paste" variant={active ? "secondary" : "primary"}>Paste plan</LinkButton>
         <LinkButton href="#/templates">Templates</LinkButton>
+        <LinkButton href="#/timer" className="col-span-2">Quick timer</LinkButton>
       </div>
+      {upNext.length > 0 && (
+        <section>
+          <h2 className="mb-2 mt-6 text-lg font-semibold">Up next</h2>
+          <ul className="space-y-2" data-testid="up-next">
+            {upNext.map((u, i) => (
+              <li key={u.id} className="flex items-center gap-2 rounded-xl bg-[var(--surface)] p-2 pl-4">
+                <span className="flex-1">{u.title}</span>
+                <Button variant={i === 0 && !active ? "primary" : "secondary"} aria-label={`Start ${u.title}`} onClick={() => { if (startFromText(u.planText, units)) removeUpNext(u.id); }}>Start</Button>
+                <Button variant="ghost" aria-label={`Remove ${u.title}`} onClick={() => { if (window.confirm(`Remove "${u.title}" from Up next?`)) removeUpNext(u.id); }}>✕</Button>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
       <section>
         <h2 className="mb-2 mt-6 text-lg font-semibold">Recent</h2>
         {recent.length === 0 && <p className="text-[var(--muted)]">No workouts yet. In Settings, copy the plan instructions and give them to Claude, then paste its plan here.</p>}
