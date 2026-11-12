@@ -45,6 +45,7 @@ export function createWorkout(plan: Plan, planText: string, now: Date, id: strin
     units: plan.units,
     exercises,
     planText,
+    pending: true,
     currentIndex: 0,
   };
 }
@@ -94,6 +95,8 @@ export function runningElsewhere(w: Workout, exIdx: number, now: number): string
   const t = w.timer;
   if (!t || t.exerciseIndex === exIdx || t.state.startedAt === null) return null;
   if (t.state.phases[0]?.label === "REST_TIMER" || isStopwatch(t.state)) return null;
+  const kind = w.exercises[t.exerciseIndex]?.planned.kind;
+  if (kind === "cardio" || kind === "other") return null; // its time is saved automatically
   if (view(t.state, now).done) return null;
   return w.exercises[t.exerciseIndex]?.planned.name ?? null;
 }
@@ -118,17 +121,47 @@ export function setTimer(w: Workout, timer: { exerciseIndex: number; state: Time
   return { ...w, timer };
 }
 
-/** Before a timer is dropped or replaced: a running cardio stopwatch writes its time into the log. */
-export function settleTimer(w: Workout, now: number): Workout {
+/** The session clock starts here; the logged length counts from this tap. */
+export function startSession(w: Workout, now: Date): Workout {
+  const { pending: _p, ...rest } = w;
+  return { ...rest, startedAt: now.toISOString() };
+}
+
+export function setEffort(w: Workout, exIdx: number, effort: number | undefined): Workout {
+  const v = effort === undefined ? undefined : Math.max(1, Math.min(10, Math.round(effort)));
+  return mapEx(w, exIdx, (log) => ({ ...log, effort: v }));
+}
+
+/** The live timer if it is a cardio/other countdown (or legacy stopwatch) that has been started. */
+function durationTimer(w: Workout) {
   const t = w.timer;
-  if (!t || !isStopwatch(t.state) || t.state.startedAt === null) return w;
-  if (w.exercises[t.exerciseIndex]?.planned.kind !== "cardio") return w;
-  const secs = Math.round(elapsedMs(t.state, now) / 1000);
-  return setTimer(setCardio(w, t.exerciseIndex, { durationSec: secs }), undefined);
+  if (!t || t.state.startedAt === null || t.state.phases[0]?.label === "REST_TIMER") return null;
+  const planned = w.exercises[t.exerciseIndex]?.planned;
+  if (!planned || (planned.kind !== "cardio" && planned.kind !== "other")) return null;
+  return { t, planned };
+}
+
+/** Before a timer is dropped or replaced: a cardio/other timer writes the time actually spent into the log. */
+export function settleTimer(w: Workout, now: number): Workout {
+  const d = durationTimer(w);
+  if (!d) return w;
+  const secs = Math.round(elapsedMs(d.t.state, now) / 1000);
+  return setTimer(setCardio(w, d.t.exerciseIndex, { durationSec: secs }), undefined);
+}
+
+/** Called every tick. When a countdown hits zero the exercise is checked off with its planned time;
+ *  'other' stops there, cardio keeps counting so a longer session logs its real length. */
+export function tickCountdown(w: Workout, now: number): Workout {
+  const d = durationTimer(w);
+  if (!d || isStopwatch(d.t.state) || !view(d.t.state, now).done) return w;
+  const i = d.t.exerciseIndex;
+  if (d.planned.kind === "other") return setTimer(setCardio(w, i, { durationSec: d.planned.durationSec }), undefined);
+  if ((w.exercises[i].durationSec ?? 0) >= d.planned.durationSec) return w;
+  return setCardio(w, i, { durationSec: d.planned.durationSec });
 }
 
 export function finish(w: Workout, now: Date, notes?: string): Workout {
-  const { timer: _t, currentIndex: _c, ...rest } = settleTimer(w, now.getTime());
+  const { timer: _t, currentIndex: _c, pending: _p, ...rest } = settleTimer(w, now.getTime());
   return {
     ...rest,
     finishedAt: now.toISOString(),

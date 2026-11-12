@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Button, Card, Title } from "../components/ui";
-import { parsePlan, type ParseResult } from "../plan/parse";
+import { looksLikePlan, parsePlan, type ParseResult } from "../plan/parse";
 import { describePlanned } from "../export/describe";
 import { unlockAudio } from "../timer/cues";
 import { navigate } from "../router";
@@ -8,6 +8,7 @@ import { useData } from "../store/data";
 import { useSettings } from "../store/settings";
 import { createWorkout, newId } from "../workout/session";
 
+const REWRITE_ASK = "Rewrite this workout in the workout app format from my instructions, in one code block in the chat, not an artifact.";
 const DRAFT_KEY = "workout.pasteDraft";
 const readDraft = () => { try { return localStorage.getItem(DRAFT_KEY) ?? ""; } catch { return ""; } };
 const saveDraft = (t: string) => { try { localStorage.setItem(DRAFT_KEY, t); } catch { /* ignore */ } };
@@ -29,6 +30,7 @@ export function Paste() {
   const [text, setText] = useState(readDraft);
   const [result, setResult] = useState<ParseResult | null>(null);
   const [saved, setSaved] = useState(false);
+  const [asked, setAsked] = useState(false);
 
   const parse = () => { setResult(parsePlan(text, units)); setSaved(false); };
 
@@ -42,7 +44,18 @@ export function Paste() {
         <Button variant="primary" onClick={parse} disabled={!text.trim()}>Check plan</Button>
       </div>
 
-      {result && !result.ok && (
+      {result && !result.ok && !looksLikePlan(text) && (
+        <Card className="border-rose-700">
+          <h2 className="mb-2 font-semibold text-rose-300">This isn't in the workout-app format</h2>
+          <p className="mb-3 text-sm">It reads like a normal message, not a plan the app can run. Ask Claude to rewrite it, then paste the code block it sends back.</p>
+          <Button className="w-full" onClick={async () => { try { await navigator.clipboard.writeText(REWRITE_ASK); setAsked(true); } catch { /* no permission */ } }}>
+            {asked ? "Copied ✓" : "Copy a message asking Claude to rewrite it"}
+          </Button>
+          <p className="mt-2 text-xs text-[var(--muted)]">“{REWRITE_ASK}”</p>
+        </Card>
+      )}
+
+      {result && !result.ok && looksLikePlan(text) && (
         <Card className="border-rose-700" >
           <h2 className="mb-2 font-semibold text-rose-300">Fix {result.errors.length === 1 ? "this line" : `these ${result.errors.length} lines`}</h2>
           <ul className="space-y-2 text-sm" data-testid="parse-errors">

@@ -1,5 +1,5 @@
 import type { Exercise } from "../plan/types";
-import { formatMinutes } from "../plan/tokens";
+import { formatMinutes, moveText } from "../plan/tokens";
 import type { ExerciseLog, LoggedSet } from "../workout/types";
 
 const restTxt = (s?: number) => (s !== undefined ? `, rest ${s}s` : "");
@@ -45,7 +45,8 @@ export function describeLog(log: ExerciseLog): string[] {
     lines.push(`- ${name} — planned ${describePlanned(log.planned)}`, `  - done: ${describeDone(log)}`);
   } else lines.push(`- ${name} — planned ${describePlanned(log.planned)} — ${describeDone(log)}`);
   if (log.planned.kind === "circuit" && log.status !== "skipped")
-    lines.push(`  - moves: ${log.planned.moves.map((m) => `${m.name} ${m.reps !== undefined ? `${m.reps} reps` : `${m.sec}s`}`).join(", ")}`);
+    lines.push(`  - moves: ${log.planned.moves.map(moveText).join(", ")}${log.planned.moveRestSec !== undefined ? ` (rest ${log.planned.moveRestSec}s between moves)` : ""}`);
+  if (log.effort !== undefined && log.status !== "skipped") lines.push(`  - effort: ${log.effort}/10`);
   if (log.notes) lines.push(`  - note: ${log.notes}`);
   return lines;
 }

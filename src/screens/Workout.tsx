@@ -8,7 +8,9 @@ import { navigate } from "../router";
 import { useData } from "../store/data";
 import { useSettings } from "../store/settings";
 import { describePlanned } from "../export/describe";
-import { runningElsewhere, setCurrent, setNotes, setTimer, settleTimer, skipExercise } from "../workout/session";
+import { runningElsewhere, setCurrent, setEffort, setNotes, setTimer, settleTimer, skipExercise, startSession, tickCountdown } from "../workout/session";
+import { lastTime } from "../trends/history";
+import { fmtDay } from "../charts/scale";
 import type { Workout as W } from "../workout/types";
 import { CardioView, OtherView } from "./exercise/CardioView";
 import { CircuitView } from "./exercise/CircuitView";
@@ -24,6 +26,8 @@ const VIEWS: Record<string, (p: ExerciseProps) => JSX.Element | null> = {
 export function Workout() {
   const active = useData((s) => s.active);
   const updateActive = useData((s) => s.updateActive);
+  const workouts = useData((s) => s.workouts);
+  const aliases = useData((s) => s.aliases);
   const settings = useSettings();
   const now = useNow(!!active);
   const prev = useRef(now);
@@ -34,8 +38,9 @@ export function Workout() {
   useEffect(() => {
     const before = prev.current;
     prev.current = now;
-    if (!entry) return;
+    if (!entry || !active) return;
     for (const c of crossedCues(entry.state, before, now)) fireCue(c, settings);
+    if (tickCountdown(active, now) !== active) updateActive((w) => tickCountdown(w, now));
     if (entry.state.phases[0]?.label === "REST_TIMER" && view(entry.state, now).done) {
       updateActive((w) => setTimer(w, undefined));
     }
@@ -46,6 +51,24 @@ export function Workout() {
       <div className="space-y-4 pt-10 text-center">
         <p className="text-lg">No workout in progress.</p>
         <LinkButton href="#/" variant="primary">Go to Start</LinkButton>
+      </div>
+    );
+  }
+
+  if (active.pending) {
+    return (
+      <div className="flex min-h-full flex-col gap-4">
+        <a href="#/" className="min-h-touch py-3 text-sm text-[var(--muted)]">‹ Start</a>
+        <h1 className="text-3xl font-bold leading-tight">{active.title}</h1>
+        <ol className="space-y-1">
+          {active.exercises.map((l, i) => (
+            <li key={i} className="flex justify-between gap-3 rounded-lg bg-[var(--surface)] px-3 py-2">
+              <span>{l.planned.name}</span><span className="text-right text-sm text-[var(--muted)]">{describePlanned(l.planned)}</span>
+            </li>
+          ))}
+        </ol>
+        <p className="text-center text-[var(--muted)]">The session clock starts when you tap the button.</p>
+        <Button variant="primary" className="min-h-[5rem] text-2xl" onClick={() => { unlockAudio(); updateActive((w) => startSession(w, new Date())); }}>Start session</Button>
       </div>
     );
   }
@@ -73,13 +96,17 @@ export function Workout() {
     });
   };
   const View = VIEWS[log.planned.kind];
-  const elapsed = Math.floor((now - Date.parse(active.startedAt)) / 1000);
+  const elapsed = Math.max(0, Math.floor((now - Date.parse(active.startedAt)) / 1000));
+  const prior = lastTime(workouts, log.planned.name, aliases);
 
   return (
     <div className="flex min-h-full flex-col gap-4 pb-28" onPointerDown={unlockAudio}>
-      <header className="flex items-center justify-between text-sm text-[var(--muted)]">
+      <header className="sticky top-0 z-20 -mx-4 flex items-center justify-between border-b border-[var(--line)] bg-[var(--bg)] px-4 text-sm text-[var(--muted)]">
         <a href="#/" className="min-h-touch py-3 pr-3">‹ Start</a>
-        <span className="truncate px-2">{active.title} · {formatDuration(elapsed)}</span>
+        <span className="flex flex-col items-center leading-tight">
+          <span className="font-mono text-2xl font-bold tabular-nums text-[var(--text)]" data-testid="session-clock" aria-label="Session time">{formatDuration(elapsed)}</span>
+          <span className="max-w-[10rem] truncate text-xs">{active.title}</span>
+        </span>
         <button className="min-h-touch py-3 pl-3 font-semibold text-sky-400" onClick={() => navigate("/finish")}>Finish</button>
       </header>
 
@@ -88,12 +115,24 @@ export function Workout() {
         <h1 className="text-3xl font-bold leading-tight">{log.planned.name}</h1>
         <div className="text-[var(--muted)]">{describePlanned(log.planned)}</div>
         {log.planned.note && <div className="mt-1 text-amber-300">{log.planned.note}</div>}
+        {prior && <div className="mt-1 text-sm text-[var(--muted)]" data-testid="last-time">Last time ({fmtDay(prior.date)}): {prior.text}</div>}
       </div>
 
       <View w={active} idx={idx} now={now} timer={exTimer} update={update} setTimer={putTimer} />
 
       <textarea className="min-h-[3rem] w-full rounded-xl bg-slate-800 p-3" placeholder="Notes for this exercise"
         value={log.notes ?? ""} onChange={(e) => update((w) => setNotes(w, idx, e.target.value))} />
+
+      <div>
+        <div className="mb-1 text-sm text-[var(--muted)]">Effort, 1 easy to 10 all-out (optional)</div>
+        <div className="grid grid-cols-10 gap-1" role="radiogroup" aria-label="Effort">
+          {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((n) => (
+            <button key={n} type="button" role="radio" aria-checked={log.effort === n} aria-label={`Effort ${n}`}
+              onClick={() => update((w) => setEffort(w, idx, log.effort === n ? undefined : n))}
+              className={`h-11 rounded-lg text-sm font-semibold ${log.effort === n ? "bg-sky-600 text-white" : "bg-slate-800 text-[var(--muted)]"}`}>{n}</button>
+          ))}
+        </div>
+      </div>
 
       <div className="grid grid-cols-3 gap-2">
         <Button disabled={idx === 0} onClick={() => go(idx - 1)}>‹ Prev</Button>

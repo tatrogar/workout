@@ -1,7 +1,7 @@
 import type { CircuitMove, Seconds } from "../plan/types";
 
 /** sec 0 means "wait for Done" (a rep-count move). */
-export type Phase = { label: "WORK" | "REST" | "HOLD" | "MOVE" | "REST_TIMER"; sec: Seconds; round: number; moveIndex?: number };
+export type Phase = { label: "WORK" | "REST" | "HOLD" | "MOVE" | "REST_TIMER" | "READY"; sec: Seconds; round: number; moveIndex?: number };
 export type TimerState = { phases: Phase[]; startedAt: number | null; pausedAt: number | null; pausedTotalMs: number };
 export type TimerView = { index: number; phase: Phase | null; remainingSec: number; done: boolean; waiting: boolean };
 export type Cue = "WORK" | "REST" | "WARN" | "END";
@@ -24,10 +24,14 @@ export function holdPhases(sets: number, holdSec: Seconds, restSec?: Seconds): P
   return out;
 }
 
-export function circuitPhases(rounds: number, moves: CircuitMove[], restSec?: Seconds): Phase[] {
+export function circuitPhases(rounds: number, moves: CircuitMove[], restSec?: Seconds, moveRestSec?: Seconds): Phase[] {
   const out: Phase[] = [];
   for (let r = 1; r <= rounds; r++) {
-    moves.forEach((m, i) => out.push({ label: "MOVE", sec: m.sec ?? 0, round: r, moveIndex: i }));
+    moves.forEach((m, i) => {
+      // A per-side move waits for Done: the owner times both sides themselves.
+      out.push({ label: "MOVE", sec: m.perSide ? 0 : m.sec ?? 0, round: r, moveIndex: i });
+      if (moveRestSec && i < moves.length - 1) out.push({ label: "REST", sec: moveRestSec, round: r });
+    });
     if (r < rounds && restSec) out.push({ label: "REST", sec: restSec, round: r });
   }
   return out;
@@ -40,6 +44,16 @@ export function stopwatchPhases(): Phase[] {
 }
 export function isStopwatch(s: TimerState): boolean {
   return s.phases.length === 1 && s.phases[0].label === "WORK" && s.phases[0].sec === STOPWATCH_SEC;
+}
+
+/** One countdown from a planned duration (warm-ups, cardio). Elapsed time keeps running past zero. */
+export function countdownPhases(sec: Seconds): Phase[] {
+  return [{ label: "WORK", sec, round: 1 }];
+}
+
+/** Puts a short get-ready countdown in front, so the phone can be set down first. */
+export function withReady(phases: Phase[], sec: Seconds = 5): Phase[] {
+  return [{ label: "READY", sec, round: 1 }, ...phases];
 }
 
 export function restPhases(sec: Seconds): Phase[] {

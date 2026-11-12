@@ -1,4 +1,6 @@
+import { useState } from "react";
 import { Button, Check, Stepper } from "../../components/ui";
+import { plates } from "../../workout/plates";
 import { newTimer, restPhases, start } from "../../timer/engine";
 import { addSet, editSet, toggleSet } from "../../workout/session";
 import type { ExerciseProps } from "./shared";
@@ -9,6 +11,8 @@ export function StrengthView({ w, idx, update, setTimer }: ExerciseProps) {
   const restSec = log.planned.restSec;
   const step = w.units === "kg" ? 2.5 : 5;
   const sets = log.sets ?? [];
+  const [showPlates, setShowPlates] = useState(false);
+  const weights = [...new Set(sets.map((s) => s.weight).filter((x): x is number => x !== undefined))];
   return (
     <div className="space-y-2">
       {restSec !== undefined && <p className="text-sm text-[var(--muted)]">Rest {restSec}s between sets — starts when you check a set.</p>}
@@ -26,7 +30,22 @@ export function StrengthView({ w, idx, update, setTimer }: ExerciseProps) {
           <Stepper label={`Set ${i + 1} reps`} value={s.reps} step={1} onChange={(v) => update((x) => editSet(x, idx, i, { reps: Math.round(v) }))} />
         </div>
       ))}
-      <Button variant="ghost" className="w-full" onClick={() => update((x) => addSet(x, idx))}>+ Add set</Button>
+      <div className="grid grid-cols-2 gap-2">
+        <Button variant="ghost" onClick={() => update((x) => addSet(x, idx))}>+ Add set</Button>
+        {weights.length > 0 && <Button variant="ghost" aria-expanded={showPlates} onClick={() => setShowPlates(!showPlates)}>Plates</Button>}
+      </div>
+      {showPlates && (
+        <ul className="rounded-xl bg-slate-800/60 p-3 text-sm" data-testid="plates">
+          {weights.map((wt) => {
+            const p = plates(wt, w.units);
+            return (
+              <li key={wt}><span className="font-semibold">{wt} {w.units}:</span>{" "}
+                {p === null ? "can't be loaded on a standard bar" : p.length === 0 ? "empty bar" : `${p.join(" + ")} per side`}</li>
+            );
+          })}
+          <li className="mt-1 text-[var(--muted)]">Assumes a {w.units === "kg" ? "20 kg" : "45 lb"} bar.</li>
+        </ul>
+      )}
     </div>
   );
 }

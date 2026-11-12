@@ -36,7 +36,7 @@ export function exerciseNames(ws: Workout[], aliases: Record<string, string>): E
 
 export type SeriesPoint = { date: string; workoutId: string; values: Record<string, number> };
 
-function convert(weight: number, from: Units, to: Units): number {
+export function convert(weight: number, from: Units, to: Units): number {
   if (from === to) return weight;
   return round1(from === "kg" ? weight * LB_PER_KG : weight / LB_PER_KG);
 }

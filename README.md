@@ -20,16 +20,27 @@ Live at **https://tatrogar.github.io/workout/** once deployed.
 2. Ask Claude for a workout. It replies with a plan in a code block.
 3. Copy the plan, then in the app go to **Start → Paste plan → Check plan → Start
    workout**. If a line can't be read, the app tells you which line and what it
-   expected.
-4. Do the workout:
+   expected. If the text isn't a plan at all, it gives you a message to send
+   Claude asking for a rewrite.
+4. Tap **Start session**. The session clock at the top runs until you finish,
+   and nothing else works until you tap it.
+5. Do the workout:
    - **Strength:** check off each set. Tap the numbers to change weight or reps.
      Checking a set starts the rest timer.
    - **Intervals, holds, circuits:** tap Start. Each phase change gives a chime,
      a vibration, and a screen flash (each can be turned off in Settings).
-   - **Cardio:** use the stopwatch, or type in the minutes and distance.
-5. Tap **Finish**, add a note, and save.
-6. **Settings → Export log** shares one Markdown file, `workout-log-YYYY-MM-DD.md`.
-   Send it to the Claude app and ask how things are going.
+     Intervals and holds give you 5 seconds to get ready first.
+   - **Warm-ups and other timed work:** tap Start for a countdown. At zero the
+     exercise checks itself off.
+   - **Cardio:** counts down from the planned time and keeps counting past
+     zero, so a longer session logs its real length. You can also type in the
+     minutes and distance.
+   - **Every exercise:** shows what you did last time, has a Plates button for
+     barbell weights, and an optional 1–10 effort rating.
+6. Tap **Finish**, add a note, and save. New personal bests are listed there.
+7. **Settings → Export last 4 weeks** shares one Markdown file,
+   `workout-log-YYYY-MM-DD.md`, sized for a Claude chat. **Export everything**
+   is the full backup.
 
 The Trends tab graphs each exercise over time, plus workouts and minutes per
 week. If the same exercise was logged under two names ("Squat" and "Back
@@ -54,9 +65,10 @@ intervals: 8 x 20s work / 10s rest
 hold: 3 x 45s, rest 30s
 
 ## Core circuit
-circuit: 3 rounds, rest 60s
+circuit: 3 rounds, rest 20s between moves, rest 60s between rounds
 - Plank 45s
 - Dead bug 10 reps
+- Side plank 20s/side
 
 ## Easy run
 cardio: 20 min, 2 mi

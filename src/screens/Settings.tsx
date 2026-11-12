@@ -1,6 +1,6 @@
 import { useRef, useState } from "react";
 import { Button, Card, Title, Toggle } from "../components/ui";
-import { exportFileName, toMarkdown } from "../export/markdown";
+import { exportFileName, recentWorkouts, toMarkdown } from "../export/markdown";
 import { mergeWorkouts, parseExport } from "../export/importFile";
 import { shareOrDownload } from "../export/share";
 import { CLAUDE_INSTRUCTIONS } from "../plan/instructions";
@@ -15,11 +15,15 @@ export function Settings() {
   const fileRef = useRef<HTMLInputElement>(null);
   const count = data.workouts.filter((w) => w.finishedAt).length;
 
-  const doExport = async () => {
+  const doExport = async (recentOnly: boolean) => {
     const now = new Date();
-    const text = toMarkdown(data.workouts, data.aliases, settings.units, now);
+    const ws = recentOnly ? recentWorkouts(data.workouts, now, 28) : data.workouts;
+    const text = toMarkdown(ws, data.aliases, settings.units, now);
     const r = await shareOrDownload(exportFileName(now), text);
-    if (r !== "cancelled") { data.markExported(now); data.clearStorageError(); setMsg(r === "shared" ? "Shared." : "Saved to Downloads."); }
+    if (r === "cancelled") return;
+    // Only a full export counts as a backup.
+    if (!recentOnly) { data.markExported(now); data.clearStorageError(); }
+    setMsg(r === "shared" ? "Shared." : "Saved to Downloads.");
   };
 
   const doImport = async (file: File) => {
@@ -42,7 +46,8 @@ export function Settings() {
         <p className="mb-3 text-sm text-[var(--muted)]">
           {count} workout{count === 1 ? "" : "s"} on this phone. {data.lastExportAt ? `Last export ${new Date(data.lastExportAt).toLocaleDateString()}.` : "Never exported."} The file is what you give Claude for feedback — and your only backup.
         </p>
-        <Button variant="primary" className="w-full" onClick={() => void doExport()}>Export log</Button>
+        <Button variant="primary" className="w-full" onClick={() => void doExport(true)}>Export last 4 weeks (for Claude)</Button>
+        <Button className="mt-2 w-full" onClick={() => void doExport(false)}>Export everything (backup)</Button>
         <Button variant="ghost" className="mt-2 w-full" onClick={() => fileRef.current?.click()}>Import a backup…</Button>
         <input ref={fileRef} type="file" className="hidden" data-testid="import-file"
           onChange={(e) => { const f = e.target.files?.[0]; if (f) void doImport(f); e.target.value = ""; }} />

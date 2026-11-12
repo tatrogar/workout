@@ -3,13 +3,13 @@ import type { TimerView } from "../../timer/engine";
 
 const COLORS: Record<string, string> = {
   WORK: "text-emerald-400", HOLD: "text-emerald-400", MOVE: "text-emerald-400",
-  REST: "text-sky-400", REST_TIMER: "text-sky-400",
+  REST: "text-sky-400", REST_TIMER: "text-sky-400", READY: "text-amber-300",
 };
-const LABELS: Record<string, string> = { WORK: "WORK", HOLD: "HOLD", MOVE: "GO", REST: "REST", REST_TIMER: "REST" };
+const LABELS: Record<string, string> = { WORK: "WORK", HOLD: "HOLD", MOVE: "GO", REST: "REST", REST_TIMER: "REST", READY: "GET READY" };
 
-export function TimerFace({ v, sub }: { v: TimerView; sub?: string }) {
+export function TimerFace({ v, sub, label: override }: { v: TimerView; sub?: string; label?: string }) {
   if (v.done) return <div className="py-6 text-center text-4xl font-bold text-emerald-400">Done</div>;
-  const label = v.phase ? LABELS[v.phase.label] : "";
+  const label = override ?? (v.phase ? LABELS[v.phase.label] : "");
   return (
     <div className="py-2 text-center" aria-live="polite">
       <div className={`text-2xl font-bold tracking-widest ${v.phase ? COLORS[v.phase.label] : ""}`}>{label}</div>

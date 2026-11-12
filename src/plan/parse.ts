@@ -1,4 +1,4 @@
-import { parseDuration, parseWeight } from "./tokens";
+import { moveText, parseDuration, parseWeight } from "./tokens";
 import type { CircuitMove, Exercise, Plan, Seconds, StrengthSet, Units } from "./types";
 
 export type ParseError = { line: number; text: string; message: string };
@@ -9,7 +9,7 @@ const TYPE_EXAMPLES: Record<string, string> = {
   sets: '"sets: 135x8, 155x6, 175x4, rest 90s" (bw x8 for bodyweight)',
   intervals: '"intervals: 8 x 20s work / 10s rest"',
   hold: '"hold: 3 x 45s, rest 30s"',
-  circuit: '"circuit: 3 rounds, rest 60s" followed by lines like "- Plank 45s" or "- Push-ups 10 reps"',
+  circuit: '"circuit: 3 rounds, rest 30s between moves, rest 60s between rounds" followed by lines like "- Plank 45s" or "- Push-ups 10 reps"',
   cardio: '"cardio: 20 min" or "cardio: 20 min, 2 mi"',
   other: '"other: 10 min"',
 };
@@ -122,33 +122,40 @@ export function parsePlan(text: string, defaultUnits: Units): ParseResult {
   return { ok: true, plan };
 }
 
-function parseMove(s: string): CircuitMove | null {
-  let m = s.match(/^(.+?)\s+(\d+)\s*reps?$/i);
-  if (m) return { name: m[1], reps: Number(m[2]) };
+function parseMove(raw: string): CircuitMove | null {
+  const sideRe = /\s*(?:\/\s*(?:side|each)|\s(?:each|per) side)$/i;
+  const side = sideRe.test(raw) ? { perSide: true } : {};
+  const s = raw.replace(sideRe, "").trim();
+  let m = s.match(/^(.+?)\s+(?:x\s*(\d+)|(\d+)\s*reps?)$/i);
+  if (m) return { name: m[1], reps: Number(m[2] ?? m[3]), ...side };
   m = s.match(/^(.+?)\s+(\d+(?:\.\d+)?\s*[a-z]+|\d+:\d\d)$/i);
   if (m) {
     const sec = parseDuration(m[2]);
-    if (sec) return { name: m[1], sec };
+    if (sec) return { name: m[1], sec, ...side };
   }
   return null;
 }
 
 /** Split "a, b, rest 90s" into parts and an optional trailing rest. */
-function splitRest(body: string): { parts: string[]; restSec?: Seconds; bad?: true } {
-  const parts = body.split(",").map((p) => p.trim()).filter(Boolean);
-  const last = parts[parts.length - 1];
-  const m = last?.match(/^rest\s+(.+)$/i);
-  if (!m) return { parts };
-  const restSec = parseDuration(m[1]);
-  if (restSec === null) return { parts, bad: true };
-  return { parts: parts.slice(0, -1), restSec };
+function splitRest(body: string): { parts: string[]; restSec?: Seconds; moveRestSec?: Seconds; bad?: true } {
+  const out: { parts: string[]; restSec?: Seconds; moveRestSec?: Seconds; bad?: true } = { parts: [] };
+  for (const p of body.split(",").map((x) => x.trim()).filter(Boolean)) {
+    const m = p.match(/^rest\s+(.+?)(?:\s+between\s+(moves|rounds))?$/i);
+    if (!m) { out.parts.push(p); continue; }
+    const sec = parseDuration(m[1]);
+    if (sec === null) out.bad = true;
+    else if (m[2]?.toLowerCase() === "moves") out.moveRestSec = sec;
+    else out.restSec = sec;
+  }
+  return out;
 }
 
 type TypeResult = { ex: Exercise; units?: Units } | { error: true };
 
 function parseTypeLine(kind: string, body: string, name: string): TypeResult {
-  const { parts, restSec, bad } = splitRest(body);
+  const { parts, restSec, moveRestSec, bad } = splitRest(body);
   if (bad || parts.length === 0) return { error: true };
+  if (moveRestSec !== undefined && kind !== "circuit") return { error: true };
   const rest = restSec !== undefined ? { restSec } : {};
   let m: RegExpMatchArray | null;
 
@@ -209,7 +216,7 @@ function parseTypeLine(kind: string, body: string, name: string): TypeResult {
       if (parts.length !== 1) return { error: true };
       m = parts[0].match(/^(\d+)\s*rounds?$/i);
       if (!m) return { error: true };
-      return { ex: { kind: "circuit", name, rounds: Number(m[1]), ...rest, moves: [] } };
+      return { ex: { kind: "circuit", name, rounds: Number(m[1]), ...rest, ...(moveRestSec !== undefined ? { moveRestSec } : {}), moves: [] } };
     }
     case "cardio": {
       if (restSec !== undefined || parts.length > 2) return { error: true };
@@ -253,8 +260,8 @@ export function planToText(plan: Plan): string {
       case "intervals": out.push(`intervals: ${ex.rounds} x ${ex.workSec}s work / ${ex.restSec}s rest`); break;
       case "hold": out.push(`hold: ${ex.sets} x ${ex.holdSec}s${rest(ex.restSec)}`); break;
       case "circuit":
-        out.push(`circuit: ${ex.rounds} rounds${rest(ex.restSec)}`);
-        for (const mv of ex.moves) out.push(`- ${mv.name} ${mv.reps !== undefined ? `${mv.reps} reps` : `${mv.sec}s`}`);
+        out.push(`circuit: ${ex.rounds} rounds${ex.moveRestSec !== undefined ? `, rest ${ex.moveRestSec}s between moves` : ""}${ex.restSec !== undefined ? `, rest ${ex.restSec}s between rounds` : ""}`);
+        for (const mv of ex.moves) out.push(`- ${moveText(mv)}`);
         break;
       case "cardio": out.push(`cardio: ${ex.durationSec}s${ex.distance !== undefined ? `, ${ex.distance} ${ex.distanceUnit ?? "mi"}` : ""}`); break;
       case "other": out.push(`other: ${ex.durationSec}s`); break;
@@ -263,4 +270,10 @@ export function planToText(plan: Plan): string {
     out.push("");
   }
   return out.join("\n");
+}
+
+/** Rough check before parsing: does this text even try to be an app plan (a "## name" and a type line)? */
+export function looksLikePlan(text: string): boolean {
+  const lines = text.split(/\r?\n/).map(clean);
+  return lines.some((l) => /^##\s+\S/.test(l)) && lines.some((l) => /^(strength|sets|intervals|hold|circuit|cardio|other):/i.test(l));
 }

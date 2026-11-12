@@ -2,9 +2,12 @@ import { Card, LinkButton, Title } from "../components/ui";
 import { exportDue, useData } from "../store/data";
 import { workoutMinutes } from "../export/markdown";
 import { localDate } from "../workout/session";
+import { formatDuration } from "../plan/tokens";
+import { useNow } from "../timer/useNow";
 
 export function Start() {
   const { active, workouts, lastExportAt } = useData();
+  const now = useNow(!!active && !active.pending);
   const due = exportDue({ workouts, lastExportAt }, new Date());
   const recent = workouts.filter((w) => w.finishedAt).slice(0, 3);
   return (
@@ -18,9 +21,9 @@ export function Start() {
       )}
       {active && (
         <Card className="border-sky-700">
-          <p className="text-sm text-[var(--muted)]">In progress</p>
+          <p className="text-sm text-[var(--muted)]">{active.pending ? "Ready to start" : `In progress · ${formatDuration(Math.max(0, Math.floor((now - Date.parse(active.startedAt)) / 1000)))}`}</p>
           <p className="mb-3 text-xl font-semibold">{active.title}</p>
-          <LinkButton href="#/workout" variant="primary">Resume</LinkButton>
+          <LinkButton href="#/workout" variant="primary">{active.pending ? "Open" : "Resume"}</LinkButton>
         </Card>
       )}
       <div className="grid grid-cols-2 gap-2">

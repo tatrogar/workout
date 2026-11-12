@@ -69,6 +69,7 @@ export function WorkoutDetail({ id }: { id: string }) {
               <Sparkline values={spark} label={`${log.planned.name} trend`} />
             </div>
             {!editing && <p className={`mt-2 ${log.status === "skipped" ? "text-[var(--muted)]" : ""}`}>{describeDone(log)}</p>}
+            {!editing && log.effort !== undefined && <p className="mt-1 text-sm text-[var(--muted)]">Effort {log.effort}/10</p>}
             {!editing && log.notes && <p className="mt-1 text-sm text-amber-200">“{log.notes}”</p>}
             {editing && <EditExercise w={w} idx={i} update={update} />}
           </Card>

@@ -1,4 +1,4 @@
-import type { Seconds, Units } from "./types";
+import type { CircuitMove, Seconds, Units } from "./types";
 
 /** "45s", "90 s", "2 min", "1.5 min", "1:30", "20 minutes" → seconds. A bare number is rejected. */
 export function parseDuration(input: string): Seconds | null {
@@ -36,4 +36,9 @@ export function parseWeight(input: string, defaultUnits: Units): { value: number
   if (!m) return null;
   const units: Units = m[2] ? (m[2].startsWith("kg") ? "kg" : "lb") : defaultUnits;
   return { value: Number(m[1]), units };
+}
+
+/** "Plank 45s", "Push-ups 10 reps", "Side plank 20s/side" — the form plans and exports both use. */
+export function moveText(m: CircuitMove): string {
+  return `${m.name} ${m.reps !== undefined ? `${m.reps} reps` : `${m.sec}s`}${m.perSide ? "/side" : ""}`;
 }

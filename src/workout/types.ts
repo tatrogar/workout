@@ -9,6 +9,7 @@ export type ExerciseLog = {
   status: ExerciseStatus;
   skipped?: boolean;          // explicitly skipped by the owner
   notes?: string;
+  effort?: number;            // optional 1–10 rating
   sets?: LoggedSet[];         // strength
   holds?: { sec: Seconds; done: boolean }[]; // hold
   roundsDone?: number;        // intervals, circuit
@@ -25,6 +26,8 @@ export type Workout = {
   notes?: string;
   exercises: ExerciseLog[];
   planText: string;
+  /** Waiting for the owner to tap Start session. Absent = started. */
+  pending?: boolean;
   currentIndex?: number;
   timer?: { exerciseIndex: number; state: TimerState };
 };

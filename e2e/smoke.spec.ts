@@ -9,6 +9,7 @@ async function startPlan(page: Page) {
   await page.getByRole("button", { name: "Check plan" }).click();
   await page.getByRole("button", { name: "Start workout" }).click();
   await expect(page).toHaveURL(/#\/workout/);
+  await page.getByRole("button", { name: "Start session" }).click();
 }
 
 test.beforeEach(async ({ page }) => {
@@ -47,7 +48,7 @@ test("a whole workout, saved and exported", async ({ page }) => {
 
   await page.goto("#/settings");
   const download = page.waitForEvent("download");
-  await page.getByRole("button", { name: "Export log" }).click();
+  await page.getByRole("button", { name: "Export everything (backup)" }).click();
   const file = await download;
   expect(file.suggestedFilename()).toMatch(/^workout-log-\d{4}-\d{2}-\d{2}\.md$/);
   const text = readFileSync((await file.path())!, "utf8");
@@ -72,7 +73,7 @@ test("a hold you untick stays unticked when you come back", async ({ page }) => 
   for (let i = 0; i < 4; i++) await page.getByRole("button", { name: "Next ›" }).click();
   await expect(page.getByRole("heading", { name: "Plank" })).toBeVisible();
   await page.getByRole("button", { name: "Start", exact: true }).click();
-  await page.clock.runFor(50_000);
+  await page.clock.runFor(56_000);
   await expect(page.getByRole("checkbox", { name: "Hold 1 done" })).toHaveAttribute("aria-checked", "true");
   await page.getByRole("checkbox", { name: "Hold 1 done" }).click();
   await page.getByRole("button", { name: "‹ Prev" }).click();
@@ -102,4 +103,68 @@ test("a corrupted saved workout shows a way out, not a blank page", async ({ pag
   await expect(page.getByRole("heading", { name: "This screen hit a problem" })).toBeVisible();
   await page.getByRole("link", { name: "Back to Start" }).click();
   await expect(page.getByRole("heading", { name: "Workout" })).toBeVisible();
+});
+
+const WARMUP = "# Short\n\n## Warm-up\nother: 5 min\n\n## Easy run\ncardio: 2 min\n\n## Squat\nstrength: 2x5 @ 185 lb\n";
+
+async function pastePlan(page: Page, text: string) {
+  await page.goto("#/paste");
+  await page.locator("textarea").fill(text);
+  await page.getByRole("button", { name: "Check plan" }).click();
+}
+
+test("nothing works until Start session, then the session clock runs", async ({ page }) => {
+  await pastePlan(page, WARMUP);
+  await page.getByRole("button", { name: "Start workout" }).click();
+  await expect(page.getByRole("button", { name: "Start session" })).toBeVisible();
+  await expect(page.getByTestId("session-clock")).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Next ›" })).toHaveCount(0);
+  await page.clock.runFor(60_000);
+  await page.getByRole("button", { name: "Start session" }).click();
+  await expect(page.getByTestId("session-clock")).toHaveText(/^[0-3]s$/);
+  await page.clock.runFor(125_000);
+  await expect(page.getByTestId("session-clock")).toHaveText(/^2:0\d$/);
+});
+
+test("a warm-up counts down and checks itself off; cardio keeps counting past zero", async ({ page }) => {
+  await pastePlan(page, WARMUP);
+  await page.getByRole("button", { name: "Start workout" }).click();
+  await page.getByRole("button", { name: "Start session" }).click();
+  await page.getByRole("button", { name: "Start", exact: true }).click();
+  await page.clock.runFor(100_000);
+  await expect(page.getByTestId("timer")).toHaveText(/^3:[12]\d$/);
+  await page.clock.runFor(205_000);
+  await expect(page.getByRole("checkbox", { name: "Done" })).toHaveAttribute("aria-checked", "true");
+
+  await page.getByRole("button", { name: "Next ›" }).click();
+  await page.getByRole("button", { name: "Start countdown" }).click();
+  await page.clock.runFor(150_000);
+  await expect(page.getByTestId("timer")).toHaveText(/^\+(2\d|3\d)s$/);
+  await page.getByRole("button", { name: "Next ›" }).click();
+  await page.getByRole("button", { name: "‹ Prev" }).click();
+  await expect(page.getByRole("textbox", { name: "Minutes" })).toHaveValue("2.5");
+});
+
+test("prose pasted from a chat gets one clear message", async ({ page }) => {
+  await pastePlan(page, "Week 1 · Run + Bodyweight B\n\nWarm-up: bike 3 min, squats x10\nJog 1 min / walk 2 min x8\nStretch");
+  await expect(page.getByRole("heading", { name: "This isn't in the workout-app format" })).toBeVisible();
+  await expect(page.getByTestId("parse-errors")).toHaveCount(0);
+});
+
+test("effort, plates and last time", async ({ page }) => {
+  for (const day of [1, 2]) {
+    await pastePlan(page, "# Lift\n\n## Squat\nstrength: 1x5 @ " + (day === 1 ? 185 : 190) + " lb\n");
+    await page.getByRole("button", { name: "Start workout" }).click();
+    await page.getByRole("button", { name: "Start session" }).click();
+    if (day === 2) await expect(page.getByTestId("last-time")).toContainText("185x5 ✓");
+    await page.getByRole("checkbox", { name: "Set 1 done" }).click();
+    await page.getByRole("radio", { name: "Effort 7" }).click();
+    await page.getByRole("button", { name: "Plates" }).click();
+    await expect(page.getByTestId("plates")).toContainText(day === 1 ? "45 + 25 per side" : "45 + 25 + 2.5 per side");
+    await page.getByRole("button", { name: "Finish" }).last().click();
+    if (day === 2) await expect(page.getByTestId("bests")).toContainText("Squat: 190 lb, up from 185");
+    await expect(page.getByText("effort: 7/10")).toBeVisible();
+    await page.getByRole("button", { name: "Save workout" }).click();
+    await page.clock.runFor(3_600_000);
+  }
 });

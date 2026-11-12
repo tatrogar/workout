@@ -10,12 +10,18 @@ export function workoutMinutes(w: Workout): number {
   return Math.max(0, Math.round((Date.parse(w.finishedAt) - Date.parse(w.startedAt)) / 60000));
 }
 
+/** Workouts started within the last `days` days. */
+export function recentWorkouts(workouts: Workout[], now: Date, days: number): Workout[] {
+  const cutoff = now.getTime() - days * 86_400_000;
+  return workouts.filter((w) => Date.parse(w.startedAt) >= cutoff);
+}
+
 export function exportFileName(now: Date): string {
   return `workout-log-${localDate(now)}.md`;
 }
 
 function clean(w: Workout): Workout {
-  const { timer: _t, currentIndex: _c, ...rest } = w;
+  const { timer: _t, currentIndex: _c, pending: _p, ...rest } = w;
   return rest;
 }
 
