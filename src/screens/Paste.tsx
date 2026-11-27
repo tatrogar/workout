@@ -8,19 +8,27 @@ import { useData } from "../store/data";
 import { useSettings } from "../store/settings";
 import { createWorkout, newId } from "../workout/session";
 import { planNames } from "../videos/library";
+import { PENDING_KEY } from "./calendar/Calendar";
+
+/** Hand the pasted text to the calendar, which opens today with it in the paste box. */
+function putOnCalendar(text: string) {
+  try { localStorage.setItem(PENDING_KEY, text); } catch { /* ignore */ }
+  navigate("/calendar");
+}
 
 const REWRITE_ASK = "Rewrite this workout in the workout app format from my instructions, in one code block in the chat, not an artifact.";
 const DRAFT_KEY = "workout.pasteDraft";
 const readDraft = () => { try { return localStorage.getItem(DRAFT_KEY) ?? ""; } catch { return ""; } };
 const saveDraft = (t: string) => { try { localStorage.setItem(DRAFT_KEY, t); } catch { /* ignore */ } };
 
-export function startFromText(text: string, units: "lb" | "kg"): boolean {
+export function startFromText(text: string, units: "lb" | "kg", scheduledId?: string): boolean {
   const r = parsePlan(text, units);
   if (!r.ok) return false;
   const { active, startWorkout } = useData.getState();
   if (active && !window.confirm(`Replace the unfinished workout "${active.title}"?`)) return false;
   unlockAudio();
-  startWorkout(createWorkout(r.plan, text, new Date()));
+  const w = createWorkout(r.plan, text, new Date());
+  startWorkout(scheduledId ? { ...w, scheduledId } : w);
   navigate("/workout");
   return true;
 }
@@ -28,7 +36,6 @@ export function startFromText(text: string, units: "lb" | "kg"): boolean {
 export function Paste() {
   const units = useSettings((s) => s.units);
   const saveTemplate = useData((s) => s.saveTemplate);
-  const addUpNext = useData((s) => s.addUpNext);
   const addKnownNames = useData((s) => s.addKnownNames);
   const [week, setWeek] = useState<{ text: string; result: ParseResult }[] | null>(null);
   const [text, setText] = useState(readDraft);
@@ -70,10 +77,7 @@ export function Paste() {
             ))}
           </ol>
           {week.every((p) => p.result.ok)
-            ? <Button variant="primary" className="w-full" onClick={() => {
-                addUpNext(week.map((p, i) => ({ id: newId(), title: (p.result.ok && p.result.plan.title) || `Workout ${i + 1}`, planText: p.text })));
-                saveDraft(""); navigate("/");
-              }}>Save all {week.length} to Up next</Button>
+            ? <Button variant="primary" className="w-full" onClick={() => { saveDraft(""); putOnCalendar(text); }}>Put all {week.length} on the calendar</Button>
             : <p className="text-sm">Ask Claude to fix those workouts, then paste the whole message again. Line numbers count from the top of each workout's code block.</p>}
         </Card>
       )}
@@ -115,7 +119,8 @@ export function Paste() {
               saveTemplate({ id: newId(), name, planText: text, updatedAt: new Date().toISOString() });
               setSaved(true);
             }}>{saved ? "Saved ✓" : "Save as template"}</Button>
-            <Button variant="primary" onClick={() => { if (startFromText(text, units)) saveDraft(""); }}>Start workout</Button>
+            <Button onClick={() => { saveDraft(""); putOnCalendar(text); }}>Put on calendar</Button>
+            <Button variant="primary" className="col-span-2" onClick={() => { if (startFromText(text, units)) saveDraft(""); }}>Start workout</Button>
           </div>
         </Card>
       )}

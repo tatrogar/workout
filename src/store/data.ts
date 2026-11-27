@@ -3,12 +3,24 @@ import { createJSONStorage, persist } from "zustand/middleware";
 import type { Template, Workout } from "../workout/types";
 import { finish, reopen } from "../workout/session";
 import { parseYouTube, type Video } from "../videos/youtube";
+import type { Scheduled } from "../calendar/schedule";
+import { newId } from "../workout/session";
 
 export type KV = { getItem(k: string): string | null; setItem(k: string, v: string): void; removeItem(k: string): void };
 
 export type UpNext = { id: string; title: string; planText: string };
 
 export type DataState = {
+  /** Calendar entries. */
+  scheduled: Scheduled[];
+  /** Add entries; any existing entries on `replaceDates` are removed first. */
+  schedule(items: Scheduled[], replaceDates: string[]): void;
+  moveScheduled(id: string, date: string): void;
+  /** Returns the new entry's id. */
+  copyScheduled(id: string, date: string): string | null;
+  editScheduled(id: string, planText: string, title: string): void;
+  deleteScheduled(id: string): void;
+  mergeScheduled(items: Scheduled[]): void;
   /** One video per exercise, keyed by normalized name. */
   videos: Record<string, Video>;
   /** false when the link isn't a YouTube video. */
@@ -74,6 +86,25 @@ export function createDataStore(kv: KV): UseBoundStore<StoreApi<DataState>> {
     persist(
       (set, get) => ({
         workouts: [],
+        scheduled: [],
+        schedule: (items, replaceDates) => {
+          const drop = new Set(replaceDates);
+          set({ scheduled: [...get().scheduled.filter((x) => !(x.date && drop.has(x.date))), ...items] });
+        },
+        moveScheduled: (id, date) => set({ scheduled: get().scheduled.map((x) => (x.id === id ? { ...x, date } : x)) }),
+        copyScheduled: (id, date) => {
+          const src = get().scheduled.find((x) => x.id === id);
+          if (!src) return null;
+          const copy: Scheduled = { id: newId(), date, title: src.title, planText: src.planText };
+          set({ scheduled: [...get().scheduled, copy] });
+          return copy.id;
+        },
+        editScheduled: (id, planText, title) => set({ scheduled: get().scheduled.map((x) => (x.id === id ? { ...x, planText, title } : x)) }),
+        deleteScheduled: (id) => set({ scheduled: get().scheduled.filter((x) => x.id !== id) }),
+        mergeScheduled: (items) => {
+          const have = new Set(get().scheduled.map((x) => x.id));
+          set({ scheduled: [...get().scheduled, ...items.filter((x) => !have.has(x.id))] });
+        },
         videos: {},
         setVideo: (name, url) => {
           const v = parseYouTube(url);
@@ -129,7 +160,11 @@ export function createDataStore(kv: KV): UseBoundStore<StoreApi<DataState>> {
           const a = get().active;
           if (!a) return null;
           const done = finish(a, now, notes);
-          set({ active: null, workouts: [done, ...get().workouts.filter((w) => w.id !== done.id)].sort(byNewest) });
+          set({
+            active: null,
+            workouts: [done, ...get().workouts.filter((w) => w.id !== done.id)].sort(byNewest),
+            scheduled: done.scheduledId ? get().scheduled.map((x) => (x.id === done.scheduledId ? { ...x, workoutId: done.id } : x)) : get().scheduled,
+          });
           return done.id;
         },
         discardActive: () => set({ active: null }),
@@ -152,9 +187,18 @@ export function createDataStore(kv: KV): UseBoundStore<StoreApi<DataState>> {
       }),
       {
         name: "workout.data",
-        version: 1,
+        version: 2,
         storage: createJSONStorage(() => safe),
-        partialize: ({ workouts, templates, active, aliases, lastExportAt, upNext, videos, hiddenExercises, knownNames }) => ({ workouts, templates, active, aliases, lastExportAt, upNext, videos, hiddenExercises, knownNames }),
+        partialize: ({ workouts, templates, active, aliases, lastExportAt, upNext, videos, hiddenExercises, knownNames, scheduled }) => ({ workouts, templates, active, aliases, lastExportAt, upNext, videos, hiddenExercises, knownNames, scheduled }),
+        // v2: the calendar replaces Up next; old Up next items become unscheduled calendar entries.
+        migrate: (persisted, version) => {
+          const s = (persisted ?? {}) as Partial<DataState>;
+          if (version < 2 && s.upNext?.length) {
+            s.scheduled = [...(s.scheduled ?? []), ...s.upNext.map((u) => ({ id: u.id, date: null, title: u.title, planText: u.planText }))];
+            s.upNext = [];
+          }
+          return s as DataState;
+        },
       },
     ),
   );

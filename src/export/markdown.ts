@@ -1,6 +1,7 @@
 import type { Units } from "../plan/types";
 import { localDate } from "../workout/session";
 import type { Video } from "../videos/youtube";
+import type { Scheduled } from "../calendar/schedule";
 import type { Workout } from "../workout/types";
 import { describeLog } from "./describe";
 
@@ -42,7 +43,7 @@ export function copyForClaude(w: Workout): string {
 }
 
 /** `videos` is passed only for a full backup; the Claude export leaves them out. */
-export function toMarkdown(workouts: Workout[], aliases: Record<string, string>, units: Units, now: Date, videos?: Record<string, Video>, hidden?: string[], known?: string[]): string {
+export function toMarkdown(workouts: Workout[], aliases: Record<string, string>, units: Units, now: Date, videos?: Record<string, Video>, hidden?: string[], known?: string[], scheduled?: Scheduled[]): string {
   const done = workouts.filter((w) => w.finishedAt).map(clean).sort((a, b) => b.startedAt.localeCompare(a.startedAt));
   const dates = done.map((w) => localDate(new Date(w.startedAt)));
   const range = done.length ? ` · ${dates[dates.length - 1]} to ${dates[0]}` : "";
@@ -52,7 +53,7 @@ export function toMarkdown(workouts: Workout[], aliases: Record<string, string>,
     "",
   ];
   for (const w of done) out.push(...workoutSection(w, units), "");
-  const data = { formatVersion: FORMAT_VERSION, exportedAt: now.toISOString(), units, aliases, ...(videos && Object.keys(videos).length ? { videos } : {}), ...(hidden && hidden.length ? { hidden } : {}), ...(known && known.length ? { known } : {}), workouts: done };
+  const data = { formatVersion: FORMAT_VERSION, exportedAt: now.toISOString(), units, aliases, ...(videos && Object.keys(videos).length ? { videos } : {}), ...(hidden && hidden.length ? { hidden } : {}), ...(known && known.length ? { known } : {}), ...(scheduled && scheduled.length ? { scheduled } : {}), workouts: done };
   out.push("---", "", `Raw data (format version ${FORMAT_VERSION}):`, "", "```json", JSON.stringify(data), "```", "");
   return out.join("\n");
 }

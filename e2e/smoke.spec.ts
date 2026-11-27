@@ -224,16 +224,6 @@ test("copy for Claude and continue a finished workout", async ({ page, context }
   await expect(page.getByRole("checkbox", { name: "Set 1 done" })).toHaveAttribute("aria-checked", "true");
 });
 
-test("a week of workouts goes to Up next", async ({ page }) => {
-  await pastePlan(page, "Here you go:\n\n```\n# Mon legs\n## Squat\nstrength: 3x5\n```\n\n```\n# Wed run\n## Run\ncardio: 20 min\n```\n");
-  await expect(page.getByTestId("week")).toContainText("Mon legs");
-  await page.getByRole("button", { name: "Save all 2 to Up next" }).click();
-  await expect(page.getByTestId("up-next")).toContainText("Wed run");
-  await page.getByRole("button", { name: "Start Mon legs" }).click();
-  await expect(page.getByRole("heading", { name: "Mon legs" })).toBeVisible();
-  await page.goto("#/");
-  await expect(page.getByTestId("up-next")).not.toContainText("Mon legs");
-});
 
 test("quick timer runs without a workout", async ({ page }) => {
   await page.goto("#/timer");
@@ -403,13 +393,146 @@ test("checking a pasted plan puts its exercises on the Exercises list", async ({
   await expect(page.getByRole("button", { name: "Edit video for Bird dog" })).toBeVisible();
 });
 
-test("a whole week in one code block goes to Up next, nothing starts", async ({ page }) => {
-  await pastePlan(page, "Here's your week:\n\n```\n# Mon · Legs\n## Squat\nstrength: 3x5 @ 185 lb\n\n# Wed · Run\n## Run\ncardio: 20 min\n\n# Fri · Core\n## Plank\nhold: 3 x 30s\n```\n\nEnjoy!");
-  await expect(page.getByTestId("week")).toContainText("Fri · Core");
-  await page.getByRole("button", { name: "Save all 3 to Up next" }).click();
-  await expect(page.getByTestId("up-next")).toContainText("Mon · Legs");
-  await expect(page.getByTestId("up-next")).toContainText("Wed · Run");
-  await expect(page.getByTestId("up-next")).toContainText("Fri · Core");
-  await expect(page.getByText("In progress")).toHaveCount(0);
-  await expect(page.getByText("Ready to start")).toHaveCount(0);
+
+const SAMPLE = `# Mon · Upper
+## Warm-up
+other: 5 min
+# Tue · Intervals
+## Bike intervals
+intervals: 6 x 1 min work / 2 min rest
+# Wed · Home mobility
+## Cat-cow
+strength: 1x8`;
+
+// The clock is fixed at Sat 2026-11-07 (see beforeEach).
+const day = (page: Page, label: string) => page.getByRole("button", { name: new RegExp(`^${label}(:|,|$)`) });
+
+test("calendar: the sample week lands on Mon/Tue/Wed with a preview, then move, copy, delete", async ({ page }) => {
+  await page.goto("#/calendar");
+  await expect(page.getByTestId("calendar-heading")).toHaveText("November 2026");
+  await day(page, "Mon Nov 9").click();
+  await page.getByRole("textbox", { name: "Plan to schedule" }).fill(SAMPLE);
+  await page.getByRole("button", { name: "Check plan" }).click();
+  await expect(page.getByTestId("schedule-preview")).toHaveText(/Mon Nov 9 — Mon · Upper.*Tue Nov 10 — Tue · Intervals.*Wed Nov 11 — Wed · Home mobility/);
+  await page.getByRole("button", { name: "Save to calendar" }).click();
+  await expect(day(page, "Mon Nov 9: Mon · Upper")).toBeVisible();
+  await expect(day(page, "Tue Nov 10: Tue · Intervals")).toContainText("Intervals");
+  await expect(day(page, "Wed Nov 11: Wed · Home mobility")).toBeVisible();
+
+  await page.getByRole("button", { name: "Week" }).click();
+  await page.getByRole("button", { name: "Next week" }).click();
+  await expect(page.getByTestId("calendar-heading")).toHaveText("Week of Mon Nov 9");
+  await expect(page.getByRole("button", { name: "Tue Nov 10" })).toContainText("Tue · Intervals");
+
+  await page.getByRole("button", { name: "Tue Nov 10" }).click();
+  await page.getByRole("button", { name: "Open Tue · Intervals" }).click();
+  await page.getByRole("button", { name: "Copy to…" }).click();
+  await page.getByLabel("Copy to date").fill("2026-11-14");
+  await page.getByRole("button", { name: "Copy", exact: true }).click();
+  await expect(page.getByRole("status")).toHaveText("Copied to Sat Nov 14.");
+  await page.getByRole("button", { name: "Move to…" }).click();
+  await page.getByLabel("Move to date").fill("2026-11-12");
+  await page.getByRole("button", { name: "Move", exact: true }).click();
+  await page.getByRole("button", { name: "Close" }).click();
+  await expect(page.getByRole("button", { name: "Tue Nov 10" })).toContainText("Nothing scheduled");
+  await expect(page.getByRole("button", { name: "Thu Nov 12" })).toContainText("Tue · Intervals");
+  await expect(page.getByRole("button", { name: "Sat Nov 14" })).toContainText("Tue · Intervals");
+
+  await page.getByRole("button", { name: "Wed Nov 11" }).click();
+  page.once("dialog", (d) => void d.accept());
+  await page.getByRole("button", { name: "Open Wed · Home mobility" }).click();
+  await page.getByRole("button", { name: "Delete" }).click();
+  await expect(page.getByTestId("scheduled-item")).toHaveCount(0);
+});
+
+test("calendar: tapping today with the sample puts it on the next Mon/Tue/Wed; a taken date asks replace or add", async ({ page }) => {
+  await page.goto("#/calendar");
+  await day(page, "Sat Nov 7").click();
+  await page.getByRole("textbox", { name: "Plan to schedule" }).fill(SAMPLE);
+  await page.getByRole("button", { name: "Check plan" }).click();
+  await expect(page.getByTestId("schedule-preview")).toContainText("Mon Nov 9 — Mon · Upper");
+  await page.getByRole("button", { name: "Save to calendar" }).click();
+
+  await day(page, "Mon Nov 9: Mon · Upper").click();
+  await page.getByRole("button", { name: "+ Paste a workout onto this day" }).click();
+  await page.getByRole("textbox", { name: "Plan to schedule" }).fill("# Extra\n## Plank\nhold: 2 x 30s");
+  await page.getByRole("button", { name: "Check plan" }).click();
+  await expect(page.getByRole("radiogroup", { name: "Mon Nov 9 already has a workout" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Choose above first" })).toBeDisabled();
+  await page.getByRole("radio", { name: "Add a second" }).click();
+  await page.getByRole("button", { name: "Save to calendar" }).click();
+  await expect(page.getByTestId("scheduled-item")).toHaveCount(2);
+
+  await page.getByRole("button", { name: "+ Paste a workout onto this day" }).click();
+  await page.getByRole("textbox", { name: "Plan to schedule" }).fill("# Only\n## Run\ncardio: 20 min");
+  await page.getByRole("button", { name: "Check plan" }).click();
+  await page.getByRole("radio", { name: "Replace it" }).click();
+  await page.getByRole("button", { name: "Save to calendar" }).click();
+  await expect(page.getByTestId("scheduled-item")).toHaveCount(1);
+  await expect(page.getByTestId("scheduled-item")).toContainText("Only");
+});
+
+test("calendar: bad lines get the normal error messages", async ({ page }) => {
+  await page.goto("#/calendar");
+  await day(page, "Mon Nov 9").click();
+  await page.getByRole("textbox", { name: "Plan to schedule" }).fill("# Mon\n## Squat\nstrength: 3 by 5\n# Tue\n## Run\ncardio: 20 min");
+  await page.getByRole("button", { name: "Check plan" }).click();
+  await expect(page.getByTestId("schedule-errors")).toContainText("Workout 1, Line 3:");
+  await expect(page.getByTestId("schedule-errors")).toContainText("3x5 @ 185 lb");
+});
+
+test("today's workout is on the home screen; doing it ticks the calendar; past ones show missed", async ({ page }) => {
+  await page.goto("#/calendar");
+  await day(page, "Sat Nov 7").click();
+  await page.getByRole("textbox", { name: "Plan to schedule" }).fill("# Today legs\n## Squat\nstrength: 1x5 @ 185 lb");
+  await page.getByRole("button", { name: "Check plan" }).click();
+  await page.getByRole("button", { name: "Save to calendar" }).click();
+  await day(page, "Thu Nov 5").click();
+  await page.getByRole("textbox", { name: "Plan to schedule" }).fill("# Skipped run\n## Run\ncardio: 20 min");
+  await page.getByRole("button", { name: "Check plan" }).click();
+  await page.getByRole("button", { name: "Save to calendar" }).click();
+
+  await page.goto("#/");
+  await expect(page.getByTestId("today")).toContainText("Today legs");
+  await page.getByRole("button", { name: "Start Today legs" }).click();
+  await page.getByRole("button", { name: "Start session" }).click();
+  await page.getByRole("checkbox", { name: "Set 1 done" }).click();
+  await page.getByRole("button", { name: "Finish" }).first().click();
+  await page.getByRole("button", { name: "Save workout" }).click();
+
+  await page.goto("#/");
+  await expect(page.getByTestId("today")).toContainText("✓ Today legs");
+  await page.goto("#/calendar");
+  await expect(day(page, "Sat Nov 7: Today legs, done")).toContainText("✓");
+  await page.getByRole("button", { name: "Week" }).click();
+  await expect(page.getByRole("button", { name: "Thu Nov 5" })).toContainText("Skipped run (missed)");
+  await day(page, "Sat Nov 7").click();
+  await expect(page.getByTestId("scheduled-item")).toContainText("✓ done");
+});
+
+test("Paste plan → Put on calendar opens the calendar with the plan ready", async ({ page }) => {
+  await pastePlan(page, SAMPLE);
+  await page.getByRole("button", { name: "Put all 3 on the calendar" }).click();
+  await expect(page.getByRole("textbox", { name: "Plan to schedule" })).toHaveValue(SAMPLE);
+  await page.getByRole("button", { name: "Check plan" }).click();
+  await expect(page.getByTestId("schedule-preview")).toContainText("Wed Nov 11 — Wed · Home mobility");
+  await page.getByRole("button", { name: "Save to calendar" }).click();
+  await page.getByRole("button", { name: "Close" }).click();
+  await expect(day(page, "Wed Nov 11: Wed · Home mobility")).toBeVisible();
+});
+
+test("old Up next items show as Unscheduled on the calendar", async ({ page }) => {
+  await page.addInitScript(() => {
+    if (localStorage.getItem("seeded")) return;
+    localStorage.setItem("seeded", "1");
+    localStorage.setItem("workout.data", JSON.stringify({ version: 1, state: {
+      workouts: [], templates: [], active: null, aliases: {}, lastExportAt: null,
+      upNext: [{ id: "u1", title: "Old legs", planText: "# Old legs\n## Squat\nstrength: 3x5" }] } }));
+  });
+  await page.goto("#/calendar");
+  await expect(page.getByTestId("unscheduled")).toContainText("Old legs");
+  await page.getByLabel("Date for Old legs").fill("2026-11-10");
+  await page.getByRole("button", { name: "Schedule" }).click();
+  await expect(page.getByTestId("unscheduled")).toHaveCount(0);
+  await expect(day(page, "Tue Nov 10: Old legs")).toBeVisible();
 });

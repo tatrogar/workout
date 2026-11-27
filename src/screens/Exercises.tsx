@@ -12,7 +12,7 @@ export function Exercises() {
   const [q, setQ] = useState("");
   const [openKey, setOpenKey] = useState<string | null>(null);
   const [newName, setNewName] = useState("");
-  const names = useMemo(() => allExerciseNames(data, data.aliases), [data.workouts, data.active, data.templates, data.upNext, data.videos, data.aliases, data.knownNames]); // eslint-disable-line react-hooks/exhaustive-deps
+  const names = useMemo(() => allExerciseNames(data, data.aliases), [data.workouts, data.active, data.templates, data.upNext, data.videos, data.aliases, data.knownNames, data.scheduled]); // eslint-disable-line react-hooks/exhaustive-deps
   const hidden = new Set(data.hiddenExercises);
   const visible = names.filter((n) => !hidden.has(n.key));
   const hiddenNames = data.hiddenExercises.map((k) => names.find((n) => n.key === k) ?? { key: k, display: k.charAt(0).toUpperCase() + k.slice(1) })

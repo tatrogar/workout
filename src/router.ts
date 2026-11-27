@@ -14,6 +14,7 @@ export const ROUTES = [
   "/settings",
   "/timer",
   "/exercises",
+  "/calendar",
 ] as const;
 
 export type RoutePath = (typeof ROUTES)[number];

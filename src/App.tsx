@@ -10,13 +10,14 @@ import { TemplateEditor, Templates } from "./screens/Templates";
 import { ExerciseTrend, Trends } from "./screens/Trends";
 import { Paste } from "./screens/Paste";
 import { Exercises } from "./screens/Exercises";
+import { Calendar } from "./screens/calendar/Calendar";
 import { QuickTimer } from "./screens/QuickTimer";
 import { Start } from "./screens/Start";
 import { Workout } from "./screens/Workout";
 
 const NAV: { to: string; label: string; match: string }[] = [
   { to: "#/", label: "Start", match: "/" },
-  { to: "#/history", label: "History", match: "/history" },
+  { to: "#/calendar", label: "Calendar", match: "/calendar" },
   { to: "#/trends", label: "Trends", match: "/trends" },
   { to: "#/exercises", label: "Exercises", match: "/exercises" },
   { to: "#/settings", label: "Settings", match: "/settings" },
@@ -33,6 +34,7 @@ function screen(path: RoutePath, params: Record<string, string>): ReactNode {
     case "/settings": return <Settings />;
     case "/timer": return <QuickTimer />;
     case "/exercises": return <Exercises />;
+    case "/calendar": return <Calendar />;
     case "/paste": return <Paste />;
     case "/workout": return <Workout />;
     case "/finish": return <Finish />;

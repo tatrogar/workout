@@ -16,6 +16,7 @@ type Sources = {
   upNext: UpNext[];
   videos: Record<string, Video>;
   knownNames?: string[];
+  scheduled?: { planText: string }[];
 };
 
 const tidy = (n: string) => n.trim().replace(/\s+/g, " ");
@@ -34,7 +35,7 @@ export function planNames(plan: Plan): string[] {
 export function allExerciseNames(s: Sources, aliases: Record<string, string>): { key: string; display: string }[] {
   const raw: string[] = [];
   for (const w of [...s.workouts, ...(s.active ? [s.active] : [])]) raw.push(...namesIn(w.exercises.map((l) => l.planned)));
-  for (const t of [...s.templates.map((x) => x.planText), ...s.upNext.map((x) => x.planText)]) {
+  for (const t of [...s.templates.map((x) => x.planText), ...s.upNext.map((x) => x.planText), ...(s.scheduled ?? []).map((x) => x.planText)]) {
     const r = parsePlan(t, "lb");
     if (r.ok) raw.push(...namesIn(r.plan.exercises));
   }

@@ -35,6 +35,8 @@ export type Workout = {
   planText: string;
   /** Waiting for the owner to tap Start session. Absent = started. */
   pending?: boolean;
+  /** The calendar entry this workout was started from, if any. */
+  scheduledId?: string;
   currentIndex?: number;
   timer?: { exerciseIndex: number; state: TimerState };
 };
