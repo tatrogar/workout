@@ -402,3 +402,14 @@ test("checking a pasted plan puts its exercises on the Exercises list", async ({
   await page.reload();
   await expect(page.getByRole("button", { name: "Edit video for Bird dog" })).toBeVisible();
 });
+
+test("a whole week in one code block goes to Up next, nothing starts", async ({ page }) => {
+  await pastePlan(page, "Here's your week:\n\n```\n# Mon · Legs\n## Squat\nstrength: 3x5 @ 185 lb\n\n# Wed · Run\n## Run\ncardio: 20 min\n\n# Fri · Core\n## Plank\nhold: 3 x 30s\n```\n\nEnjoy!");
+  await expect(page.getByTestId("week")).toContainText("Fri · Core");
+  await page.getByRole("button", { name: "Save all 3 to Up next" }).click();
+  await expect(page.getByTestId("up-next")).toContainText("Mon · Legs");
+  await expect(page.getByTestId("up-next")).toContainText("Wed · Run");
+  await expect(page.getByTestId("up-next")).toContainText("Fri · Core");
+  await expect(page.getByText("In progress")).toHaveCount(0);
+  await expect(page.getByText("Ready to start")).toHaveCount(0);
+});

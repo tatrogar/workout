@@ -305,5 +305,19 @@ export function splitPlans(text: string): string[] {
     if (body) blocks.push(body);
     open = -1;
   });
-  return blocks.length >= 2 ? blocks : [text];
+  // Inside each block (or the whole text, if there are no blocks), every "# Title" starts a new workout.
+  const plans = (blocks.length ? blocks : [text]).flatMap(splitOnTitles);
+  return plans.length >= 2 ? plans : [text];
+}
+
+/** "# A ... # B ..." → ["# A ...", "# B ..."]. Text before the first title is dropped unless it holds exercises. */
+function splitOnTitles(block: string): string[] {
+  const lines = block.split(/\r?\n/);
+  const starts = lines.map((l, i) => (/^#\s+\S/.test(clean(l)) ? i : -1)).filter((i) => i >= 0);
+  if (starts.length < 2) return [block];
+  const out: string[] = [];
+  const before = lines.slice(0, starts[0]).join("\n").trim();
+  if (before && lines.slice(0, starts[0]).some((l) => /^##\s/.test(clean(l)))) out.push(before);
+  starts.forEach((s, k) => out.push(lines.slice(s, starts[k + 1] ?? lines.length).join("\n").trim()));
+  return out;
 }

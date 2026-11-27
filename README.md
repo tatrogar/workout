@@ -45,8 +45,9 @@ Live at **https://tatrogar.github.io/workout/** once deployed.
 More you can do:
 - **Change the plan mid-workout:** tap "Exercise 2 of 5 · list and edit" to jump
   to any exercise, reorder, remove, add, or swap one.
-- **A whole week:** paste a Claude message with several code blocks and save
-  them all to **Up next** on the Start screen.
+- **A whole week:** paste Claude's whole reply at once. Each `# Title` starts a
+  new workout, whether they're in one code block or several. Save them all to
+  **Up next** on the Start screen and start each on its day.
 - **Copy for Claude:** on a finished workout, copies just that workout as text
   to paste into a chat. **Continue this workout** reopens one you finished early.
 - **Each side:** add `/side` to strength, hold, or circuit lines

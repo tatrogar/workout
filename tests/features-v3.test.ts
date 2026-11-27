@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { CLAUDE_INSTRUCTIONS } from "../src/plan/instructions";
 import { parsePlan, splitPlans } from "../src/plan/parse";
 import { intervalPhases, newTimer, restPhases, start } from "../src/timer/engine";
 import { cuePhrase } from "../src/timer/phrases";
@@ -169,5 +170,30 @@ describe("settings defaults", () => {
       defaultRestOn: true, defaultRestSec: 90, readyOn: true, readySec: 5, voice: true, voiceDetail: true,
       showEffort: true, showLastTime: true, showPlates: true, showBests: true,
     });
+  });
+});
+
+describe("pasting a whole week at once", () => {
+  const titles = (t: string) => splitPlans(t).map((p) => plan(p).title);
+  it("one code block with several # Title lines is several workouts", () => {
+    expect(titles("```\n# Mon · Legs\n## Squat\nstrength: 3x5\n\n# Wed · Run\n## Run\ncardio: 20 min\n\n# Fri · Core\n## Plank\nhold: 3 x 30s\n```")).toEqual(["Mon · Legs", "Wed · Run", "Fri · Core"]);
+  });
+  it("no code blocks at all also splits on # Title", () => {
+    expect(titles("# Mon\n## Squat\nstrength: 3x5\n# Wed\n## Run\ncardio: 20 min")).toEqual(["Mon", "Wed"]);
+  });
+  it("chat text before the first workout is ignored", () => {
+    expect(titles("Here's your week:\n\n# Mon\n## Squat\nstrength: 3x5\n# Wed\n## Run\ncardio: 20 min")).toEqual(["Mon", "Wed"]);
+  });
+  it("separate code blocks that each hold several titles all split", () => {
+    expect(titles("```\n# A\n## X\nother: 5 min\n# B\n## Y\nother: 5 min\n```\ntext\n```\n# C\n## Z\nother: 5 min\n```")).toEqual(["A", "B", "C"]);
+  });
+  it("a single workout is untouched", () => {
+    const one = "# Mon\n## Squat\nstrength: 3x5";
+    expect(splitPlans(one)).toEqual([one]);
+    const fenced = "Plan:\n```\n# Mon\n## Squat\nstrength: 3x5\n```";
+    expect(splitPlans(fenced)).toEqual([fenced]);
+  });
+  it("the instructions tell Claude a whole week can go in one reply", () => {
+    expect(CLAUDE_INSTRUCTIONS).toContain("whole week");
   });
 });

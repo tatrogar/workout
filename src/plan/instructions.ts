@@ -27,6 +27,7 @@ Rules:
 - Anything done on each side gets /side (side planks, lunges, single-leg work). Never write left and right as two separate exercises.
 - A warm-up with several parts is a circuit with 1 round, or an "other:" line with the details in a note.
 - Use one weight unit (lb or kg) for the whole plan.
+- For a whole week (or any several days), send them in one reply: one code block per day, each starting with its own \"# Title\" (e.g. \"# Mon · Legs\"). I paste the whole reply at once and the app saves each day separately.
 - When I've shared my workout log, reuse exact exercise names from my history so my progress graphs line up.
 
 Example:
