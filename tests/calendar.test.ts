@@ -149,3 +149,35 @@ describe("the schedule in the store", () => {
     expect(names.map((n) => n.display)).toEqual(["Warm-up"]);
   });
 });
+
+import { startOfWeek } from "../src/calendar/schedule";
+import { weeklySeries } from "../src/trends/series";
+import { DEFAULT_SETTINGS } from "../src/store/settings";
+import { legDay } from "./fixtures/workouts";
+
+describe("week start setting", () => {
+  it("defaults to Monday", () => expect(DEFAULT_SETTINGS.weekStart).toBe("mon"));
+  it("start of week for Monday and Sunday", () => {
+    expect(startOfWeek("2026-11-26", "mon")).toBe("2026-11-23"); // Thu
+    expect(startOfWeek("2026-11-26", "sun")).toBe("2026-11-22");
+    expect(startOfWeek("2026-11-29", "mon")).toBe("2026-11-23"); // Sun belongs to the week before when weeks start Monday
+    expect(startOfWeek("2026-11-29", "sun")).toBe("2026-11-29");
+  });
+  it("month grid starts on Sunday when chosen", () => {
+    const g = monthGrid(2026, 10, "sun"); // Nov 2026 starts on a Sunday
+    expect(g[0][0]).toBe("2026-11-01");
+    expect(g[g.length - 1][6]).toBe("2026-12-05");
+    expect(monthGrid(2026, 10)[0][0]).toBe("2026-10-26");
+  });
+  it("Trends weekly bars follow the setting", () => {
+    // legDay is Sat 2026-11-07; viewed on Sun 2026-11-08
+    const mon = weeklySeries([legDay()], new Date("2026-11-08T12:00:00"), 2, "mon");
+    expect(mon.map((w) => [w.weekStart, w.workouts])).toEqual([["2026-10-26", 0], ["2026-11-02", 1]]);
+    const sun = weeklySeries([legDay()], new Date("2026-11-08T12:00:00"), 2, "sun");
+    expect(sun.map((w) => [w.weekStart, w.workouts])).toEqual([["2026-11-01", 1], ["2026-11-08", 0]]);
+  });
+  it("weekday titles still go on the next matching day, whatever the week start", () => {
+    // unaffected by the setting: placement is 'on or after the tapped date'
+    expect(placePlans(plans(SAMPLE), "2026-11-29").map((p) => p.date)).toEqual(["2026-11-30", "2026-12-01", "2026-12-02"]);
+  });
+});

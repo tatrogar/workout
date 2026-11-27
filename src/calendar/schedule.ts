@@ -22,16 +22,24 @@ export function weekdayIndex(iso: string): number {
   return (fromIso(iso).getDay() + 6) % 7;
 }
 
-export function mondayOf(iso: string): string {
-  return addDays(iso, -weekdayIndex(iso));
+export type WeekStart = "mon" | "sun";
+
+/** First day of the week containing `iso`, for weeks starting Monday or Sunday. */
+export function startOfWeek(iso: string, start: WeekStart = "mon"): string {
+  const back = start === "sun" ? fromIso(iso).getDay() : weekdayIndex(iso);
+  return addDays(iso, -back);
 }
 
-/** Whole Monday–Sunday weeks covering a month (month is 0-based, like Date). */
-export function monthGrid(year: number, month: number): string[][] {
+export function mondayOf(iso: string): string {
+  return startOfWeek(iso, "mon");
+}
+
+/** Whole weeks covering a month (month is 0-based, like Date), starting Monday or Sunday. */
+export function monthGrid(year: number, month: number, start: WeekStart = "mon"): string[][] {
   const first = toIso(new Date(year, month, 1, 12));
   const last = toIso(new Date(year, month + 1, 0, 12));
   const weeks: string[][] = [];
-  for (let d = mondayOf(first); d <= last; d = addDays(d, 7)) weeks.push(Array.from({ length: 7 }, (_, i) => addDays(d, i)));
+  for (let d = startOfWeek(first, start); d <= last; d = addDays(d, 7)) weeks.push(Array.from({ length: 7 }, (_, i) => addDays(d, i)));
   return weeks;
 }
 

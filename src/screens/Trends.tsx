@@ -14,7 +14,8 @@ export function Trends() {
   const { workouts, aliases, removeAlias } = useData();
   const units = useSettings((s) => s.units);
   const [metric, setMetric] = useState<"workouts" | "minutes">("workouts");
-  const weeks = weeklySeries(workouts, new Date());
+  const weekStart = useSettings((s) => s.weekStart);
+  const weeks = weeklySeries(workouts, new Date(), 12, weekStart);
   const names = exerciseNames(workouts, aliases);
   const aliasList = Object.entries(aliases);
   return (

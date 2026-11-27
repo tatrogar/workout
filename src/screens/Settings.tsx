@@ -78,6 +78,17 @@ export function Settings() {
       </Card>
 
       <Card>
+        <h2 className="mb-1 font-semibold">Calendar</h2>
+        <p className="mb-2 text-sm text-[var(--muted)]">Week starts on. Also used for the weekly bars on Trends.</p>
+        <div className="grid grid-cols-2 gap-2" role="radiogroup" aria-label="Week starts on">
+          {(["mon", "sun"] as const).map((d) => (
+            <Button key={d} role="radio" aria-checked={settings.weekStart === d} variant={settings.weekStart === d ? "primary" : "secondary"}
+              onClick={() => settings.set({ weekStart: d })}>{d === "mon" ? "Monday" : "Sunday"}</Button>
+          ))}
+        </div>
+      </Card>
+
+      <Card>
         <h2 className="mb-1 font-semibold">Timers</h2>
         <Toggle label="Default rest after a set" hint="Used when the plan gives no rest for a strength exercise" checked={settings.defaultRestOn} onChange={(v) => settings.set({ defaultRestOn: v })} />
         {settings.defaultRestOn && <TimeRow label="Default rest" value={settings.defaultRestSec} step={15} min={15} onChange={(v) => settings.set({ defaultRestSec: v })} />}

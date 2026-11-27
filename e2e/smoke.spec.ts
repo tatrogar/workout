@@ -536,3 +536,16 @@ test("old Up next items show as Unscheduled on the calendar", async ({ page }) =
   await expect(page.getByTestId("unscheduled")).toHaveCount(0);
   await expect(day(page, "Tue Nov 10: Old legs")).toBeVisible();
 });
+
+test("Settings: week can start on Sunday; the calendar follows", async ({ page }) => {
+  await page.goto("#/calendar");
+  await expect(page.getByRole("grid", { name: "Month" }).getByRole("button").first()).toHaveAccessibleName(/^Mon Oct 26/);
+  await page.goto("#/settings");
+  await page.getByRole("radio", { name: "Sunday" }).click();
+  await page.goto("#/calendar");
+  await expect(page.getByRole("grid", { name: "Month" }).getByRole("button").first()).toHaveAccessibleName(/^Sun Nov 1/);
+  await page.getByRole("button", { name: "Week" }).click();
+  await expect(page.getByTestId("calendar-heading")).toHaveText("Week of Sun Nov 1");
+  await page.reload();
+  await expect(page.getByTestId("calendar-heading")).toHaveText("Week of Sun Nov 1");
+});

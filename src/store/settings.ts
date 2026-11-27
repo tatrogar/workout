@@ -18,6 +18,8 @@ export type Settings = {
   switchOn: boolean;
   switchSec: number;      // prep between the two sides of a timed per-side move
   firstSide: Side;
+  /** Day the calendar week and the Trends weekly bars start on. */
+  weekStart: "mon" | "sun";
   // workout screen
   showEffort: boolean;
   showLastTime: boolean;
@@ -29,7 +31,7 @@ export const DEFAULT_SETTINGS: Settings = {
   units: "lb",
   sound: true, vibration: true, flash: true, voice: true, voiceDetail: true,
   defaultRestOn: true, defaultRestSec: 90, readyOn: true, readySec: 5,
-  switchOn: true, switchSec: 5, firstSide: "L",
+  switchOn: true, switchSec: 5, firstSide: "L", weekStart: "mon",
   showEffort: true, showLastTime: true, showPlates: true, showBests: true,
 };
 

@@ -1,12 +1,14 @@
 import { useEffect, useState } from "react";
 import { Button, Title } from "../../components/ui";
-import { addDays, dayStatus, loggedDates, mondayOf, monthGrid, shortTitle, todayIso } from "../../calendar/schedule";
+import { addDays, dayStatus, loggedDates, monthGrid, shortTitle, startOfWeek, todayIso } from "../../calendar/schedule";
+import { useSettings } from "../../store/settings";
 import { useData } from "../../store/data";
 import { DaySheet } from "./DaySheet";
 import { fmtDate } from "./SchedulePaste";
 
 const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
-const HEAD = ["M", "T", "W", "T", "F", "S", "S"];
+const HEAD_MON = ["M", "T", "W", "T", "F", "S", "S"];
+const HEAD_SUN = ["S", "M", "T", "W", "T", "F", "S"];
 const VIEW_KEY = "workout.calendarView";
 export const PENDING_KEY = "workout.pendingSchedule";
 
@@ -18,6 +20,7 @@ const takePending = (): string | null => {
 export function Calendar() {
   const { scheduled, workouts, deleteScheduled } = useData();
   const today = todayIso();
+  const weekStartsOn = useSettings((s) => s.weekStart);
   const [view, setViewRaw] = useState<"month" | "week">(readView);
   const [anchor, setAnchor] = useState(today);
   const [open, setOpen] = useState<{ date: string; text?: string } | null>(null);
@@ -30,8 +33,8 @@ export function Calendar() {
   const on = (d: string) => scheduled.filter((s) => s.date === d);
   const unscheduled = scheduled.filter((s) => s.date === null);
   const [y, m] = anchor.split("-").map(Number);
-  const grid = monthGrid(y, m - 1);
-  const weekStart = mondayOf(anchor);
+  const grid = monthGrid(y, m - 1, weekStartsOn);
+  const weekStart = startOfWeek(anchor, weekStartsOn);
   const week = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
 
   const step = (dir: number) => {
@@ -57,7 +60,7 @@ export function Calendar() {
 
       {view === "month" ? (
         <div>
-          <div className="grid grid-cols-7 gap-1 text-center text-xs text-[var(--muted)]">{HEAD.map((h, i) => <div key={i}>{h}</div>)}</div>
+          <div className="grid grid-cols-7 gap-1 text-center text-xs text-[var(--muted)]">{(weekStartsOn === "sun" ? HEAD_SUN : HEAD_MON).map((h, i) => <div key={i}>{h}</div>)}</div>
           <div className="mt-1 grid grid-cols-7 gap-1" role="grid" aria-label="Month">
             {grid.flat().map((d) => {
               const items = on(d);

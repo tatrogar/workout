@@ -100,14 +100,14 @@ export function exerciseSeries(ws: Workout[], key: string, aliases: Record<strin
   return { kind, points };
 }
 
-function mondayOf(d: Date): Date {
+function weekStartOf(d: Date, start: "mon" | "sun"): Date {
   const m = new Date(d.getFullYear(), d.getMonth(), d.getDate());
-  m.setDate(m.getDate() - ((m.getDay() + 6) % 7));
+  m.setDate(m.getDate() - (start === "sun" ? m.getDay() : (m.getDay() + 6) % 7));
   return m;
 }
 
-export function weeklySeries(ws: Workout[], now: Date, weeks = 12): { weekStart: string; workouts: number; minutes: number }[] {
-  const thisWeek = mondayOf(now);
+export function weeklySeries(ws: Workout[], now: Date, weeks = 12, start: "mon" | "sun" = "mon"): { weekStart: string; workouts: number; minutes: number }[] {
+  const thisWeek = weekStartOf(now, start);
   const buckets = Array.from({ length: weeks }, (_, i) => {
     const d = new Date(thisWeek);
     d.setDate(d.getDate() - 7 * (weeks - 1 - i));
@@ -115,7 +115,7 @@ export function weeklySeries(ws: Workout[], now: Date, weeks = 12): { weekStart:
   });
   const index = new Map(buckets.map((b, i) => [b.weekStart, i]));
   for (const w of finished(ws)) {
-    const i = index.get(localDate(mondayOf(new Date(w.startedAt))));
+    const i = index.get(localDate(weekStartOf(new Date(w.startedAt), start)));
     if (i === undefined) continue;
     buckets[i].workouts++;
     buckets[i].minutes += Math.max(0, Math.round((Date.parse(w.finishedAt!) - Date.parse(w.startedAt)) / 60000));
