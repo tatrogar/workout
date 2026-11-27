@@ -2,12 +2,19 @@ import { create, type StoreApi, type UseBoundStore } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
 import type { Template, Workout } from "../workout/types";
 import { finish, reopen } from "../workout/session";
+import { parseYouTube, type Video } from "../videos/youtube";
 
 export type KV = { getItem(k: string): string | null; setItem(k: string, v: string): void; removeItem(k: string): void };
 
 export type UpNext = { id: string; title: string; planText: string };
 
 export type DataState = {
+  /** One video per exercise, keyed by normalized name. */
+  videos: Record<string, Video>;
+  /** false when the link isn't a YouTube video. */
+  setVideo(name: string, url: string): boolean;
+  removeVideo(name: string): void;
+  mergeVideos(v: Record<string, Video>): void;
   upNext: UpNext[];
   addUpNext(items: UpNext[]): void;
   removeUpNext(id: string): void;
@@ -59,6 +66,19 @@ export function createDataStore(kv: KV): UseBoundStore<StoreApi<DataState>> {
     persist(
       (set, get) => ({
         workouts: [],
+        videos: {},
+        setVideo: (name, url) => {
+          const v = parseYouTube(url);
+          const k = aliasKey(name);
+          if (!v || !k) return false;
+          set({ videos: { ...get().videos, [k]: v } });
+          return true;
+        },
+        removeVideo: (name) => {
+          const { [aliasKey(name)]: _gone, ...rest } = get().videos;
+          set({ videos: rest });
+        },
+        mergeVideos: (v) => set({ videos: { ...v, ...get().videos } }),
         upNext: [],
         addUpNext: (items) => set({ upNext: [...get().upNext, ...items] }),
         removeUpNext: (id) => set({ upNext: get().upNext.filter((u) => u.id !== id) }),
@@ -104,7 +124,7 @@ export function createDataStore(kv: KV): UseBoundStore<StoreApi<DataState>> {
         name: "workout.data",
         version: 1,
         storage: createJSONStorage(() => safe),
-        partialize: ({ workouts, templates, active, aliases, lastExportAt, upNext }) => ({ workouts, templates, active, aliases, lastExportAt, upNext }),
+        partialize: ({ workouts, templates, active, aliases, lastExportAt, upNext, videos }) => ({ workouts, templates, active, aliases, lastExportAt, upNext, videos }),
       },
     ),
   );

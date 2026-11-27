@@ -1,4 +1,7 @@
 import { useEffect, useRef } from "react";
+import { VideoButton } from "../../components/VideoButton";
+import { useData } from "../../store/data";
+import { videoFor } from "../../videos/library";
 import { Stepper } from "../../components/ui";
 import { circuitPhases, completedPhases, newTimer, sideResults, view, type TimerState } from "../../timer/engine";
 import { fireCue } from "../../timer/cues";
@@ -12,6 +15,8 @@ export function CircuitView({ w, idx, now, timer, update, setTimer }: ExercisePr
   const log = w.exercises[idx];
   const p = log.planned;
   const settings = useSettings();
+  const videos = useData((s) => s.videos);
+  const aliases = useData((s) => s.aliases);
   const state = timer ?? (p.kind === "circuit" ? newTimer(circuitPhases(p.rounds, p.moves, p.restSec, p.moveRestSec, sideOptions(settings))) : null);
   const last = p.kind === "circuit" ? p.moves.length - 1 : 0;
   // A per-side last move has two phases; the round ends with the second.
@@ -70,7 +75,10 @@ export function CircuitView({ w, idx, now, timer, update, setTimer }: ExercisePr
         doneLabel={v.waiting ? "Done ✓" : v.phase?.label === "SWITCH" ? "Start next side" : "Skip"} waiting={v.waiting} />}
       <ol className="space-y-1 text-[var(--muted)]">
         {p.moves.map((m, i) => (
-          <li key={i} className={move === m ? "font-semibold text-[var(--text)]" : ""}>{i + 1}. {m.name} — {m.reps !== undefined ? `${m.reps} reps` : `${m.sec}s`}{m.perSide ? " each side" : ""}</li>
+          <li key={i} className={move === m ? "font-semibold text-[var(--text)]" : ""}>
+            {i + 1}. {m.name} — {m.reps !== undefined ? `${m.reps} reps` : `${m.sec}s`}{m.perSide ? " each side" : ""}
+            {(() => { const v = videoFor(videos, m.name, aliases); return v ? <div className="mt-1"><VideoButton video={v} name={m.name} compact /></div> : null; })()}
+          </li>
         ))}
       </ol>
       <div className="flex items-center justify-center gap-3">

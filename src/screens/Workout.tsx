@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { cuePhrase } from "../timer/phrases";
 import { PlanSheet } from "./PlanSheet";
+import { VideoButton } from "../components/VideoButton";
+import { videoFor } from "../videos/library";
 import { Button, LinkButton } from "../components/ui";
 import { formatDuration } from "../plan/tokens";
 import { addSeconds, crossedCues, view, type TimerState } from "../timer/engine";
@@ -30,6 +32,7 @@ export function Workout() {
   const updateActive = useData((s) => s.updateActive);
   const workouts = useData((s) => s.workouts);
   const aliases = useData((s) => s.aliases);
+  const videos = useData((s) => s.videos);
   const settings = useSettings();
   const now = useNow(!!active);
   const prev = useRef(now);
@@ -105,6 +108,7 @@ export function Workout() {
   const View = VIEWS[log.planned.kind];
   const elapsed = Math.max(0, Math.floor((now - Date.parse(active.startedAt)) / 1000));
   const prior = lastTime(workouts, log.planned.name, aliases);
+  const video = videoFor(videos, log.planned.name, aliases);
 
   return (
     <div className="flex min-h-full flex-col gap-4 pb-28" onPointerDown={unlockAudio}>
@@ -124,6 +128,7 @@ export function Workout() {
         <h1 className="text-3xl font-bold leading-tight">{log.planned.name}</h1>
         <div className="text-[var(--muted)]">{describePlanned(log.planned)}</div>
         {log.planned.note && <div className="mt-1 text-amber-300">{log.planned.note}</div>}
+        {video && <VideoButton key={idx} video={video} name={log.planned.name} />}
         {settings.showLastTime && prior && <div className="mt-1 text-sm text-[var(--muted)]" data-testid="last-time">Last time ({fmtDay(prior.date)}): {prior.text}</div>}
       </div>
 

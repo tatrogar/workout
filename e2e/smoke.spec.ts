@@ -308,3 +308,66 @@ test("plans without /side run exactly as before", async ({ page }) => {
   await page.clock.runFor(12_000);
   await expect(page.getByText("Circuit done")).toBeVisible();
 });
+
+const VID = "dQw4w9WgXcQ";
+
+test("videos: add a link, watch it in a workout, offline message, backup", async ({ page, context }) => {
+  // Block the real player so the test never touches YouTube.
+  await context.route("**/*youtube-nocookie.com/**", (r) => r.fulfill({ status: 200, contentType: "text/html", body: "<p>player</p>" }));
+  await pastePlan(page, "# Day\n## Squat\nstrength: 1x5 @ 185 lb\n## Core\ncircuit: 1 round\n- Side plank 20s/side\n- Plank 30s");
+
+  await expect(page.getByRole("button", { name: "Start workout" })).toBeVisible();
+  await page.getByRole("link", { name: "Exercises" }).click();
+  // The pasted plan isn't saved yet, so add the name by hand.
+  await page.getByRole("textbox", { name: "New exercise name" }).fill("Squat");
+  await page.getByRole("button", { name: "Add", exact: true }).click();
+  await page.getByRole("textbox", { name: "YouTube link for Squat" }).fill("https://vimeo.com/1");
+  await expect(page.getByText("That isn't a YouTube video link.")).toBeVisible();
+  await page.getByRole("textbox", { name: "YouTube link for Squat" }).fill(`https://youtu.be/${VID}?t=1m35s`);
+  await expect(page.getByText("starts at 1:35")).toBeVisible();
+  await page.getByRole("button", { name: "Save" }).click();
+  await expect(page.getByRole("button", { name: "Edit video for Squat" })).toContainText("▶ video");
+
+  await page.getByRole("textbox", { name: "New exercise name" }).fill("side  PLANK");
+  await page.getByRole("button", { name: "Add", exact: true }).click();
+  await page.getByRole("textbox", { name: /YouTube link for/ }).fill(`https://www.youtube.com/watch?v=${VID}`);
+  await page.getByRole("button", { name: "Save" }).click();
+
+  await page.goto("#/paste");
+  await page.getByRole("button", { name: "Check plan" }).click();
+  await page.getByRole("button", { name: "Start workout" }).click();
+  await page.getByRole("button", { name: "Start session" }).click();
+  await page.getByRole("button", { name: "Show video for Squat" }).click();
+  const frame = page.getByTestId("video-player").locator("iframe");
+  await expect(frame).toHaveAttribute("src", `https://www.youtube-nocookie.com/embed/${VID}?start=95&playsinline=1&rel=0`);
+  await page.getByRole("button", { name: "Hide video for Squat" }).click();
+  await expect(page.getByTestId("video-player")).toHaveCount(0);
+
+  await page.getByRole("button", { name: "Next ›" }).click();
+  await expect(page.getByRole("button", { name: "Show video for Side plank" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Show video for Plank" })).toHaveCount(0);
+
+  await context.setOffline(true);
+  await page.getByRole("button", { name: "Show video for Side plank" }).click();
+  await expect(page.getByTestId("video-offline")).toBeVisible();
+  await context.setOffline(false);
+
+  await page.getByRole("button", { name: "Finish" }).first().click();
+  await page.getByRole("button", { name: "Save workout" }).click();
+  await page.goto("#/settings");
+  let download = page.waitForEvent("download");
+  await page.getByRole("button", { name: "Export everything (backup)" }).click();
+  const backup = readFileSync((await (await download).path())!, "utf8");
+  expect(backup).toContain(`"videos":{"squat":{"id":"${VID}","start":95},"side plank":{"id":"${VID}"}}`);
+  download = page.waitForEvent("download");
+  await page.getByRole("button", { name: "Export last 4 weeks (for Claude)" }).click();
+  expect(readFileSync((await (await download).path())!, "utf8")).not.toContain('"videos"');
+
+  // Restore on a "new phone": wipe storage, import the backup.
+  await page.evaluate(() => localStorage.clear());
+  await page.reload();
+  await page.getByTestId("import-file").setInputFiles({ name: "backup.md", mimeType: "text/markdown", buffer: Buffer.from(backup) });
+  await expect(page.getByRole("status")).toContainText("Imported");
+  await page.goto("#/exercises");
+  await expect(page.getByRole("button", { name: "Edit video for Squat" })).toContainText("▶ video");
+});

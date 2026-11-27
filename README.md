@@ -54,6 +54,11 @@ More you can do:
   Timed sides run first side, a short "switch sides" countdown, then the other
   side with no taps. Each side is logged separately. Settings has the switch
   time and which side goes first.
+- **Videos:** on the **Exercises** tab, paste a YouTube link for any exercise
+  (timestamps like `t=95` are kept). A **▶ Video** button then appears whenever
+  that exercise, or a circuit move with that name, is in a workout, and plays
+  inside the app. It needs a connection. Links are included in "Export
+  everything" and restored by Import.
 - **Quick timer:** intervals or a countdown with no plan and nothing logged.
 - **Settings:** switch any cue on or off (chime, vibration, flash, spoken cues),
   set the default rest and the get-ready time, and hide the effort row, last

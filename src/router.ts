@@ -13,6 +13,7 @@ export const ROUTES = [
   "/trends/:name",
   "/settings",
   "/timer",
+  "/exercises",
 ] as const;
 
 export type RoutePath = (typeof ROUTES)[number];

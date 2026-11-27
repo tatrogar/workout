@@ -1,7 +1,8 @@
+import { isVideoId, type Video } from "../videos/youtube";
 import type { Workout } from "../workout/types";
 import { FORMAT_VERSION } from "./markdown";
 
-export type ImportResult = { ok: true; workouts: Workout[]; aliases: Record<string, string>; skipped: number } | { ok: false; message: string };
+export type ImportResult = { ok: true; workouts: Workout[]; aliases: Record<string, string>; videos: Record<string, Video>; skipped: number } | { ok: false; message: string };
 
 const num = (v: unknown) => typeof v === "number" && Number.isFinite(v);
 const str = (v: unknown) => typeof v === "string";
@@ -31,12 +32,19 @@ export function parseExport(text: string): ImportResult {
   if (!blocks.length) return { ok: false, message: "This file has no workout data block. Pick a file this app exported." };
   let data: unknown;
   try { data = JSON.parse(blocks[blocks.length - 1][1]); } catch { return { ok: false, message: "The data block in this file is damaged." }; }
-  const d = data as { formatVersion?: unknown; workouts?: unknown; aliases?: unknown };
+  const d = data as { formatVersion?: unknown; workouts?: unknown; aliases?: unknown; videos?: unknown };
   if (d.formatVersion !== FORMAT_VERSION) return { ok: false, message: `This file is format version ${String(d.formatVersion)}; this app reads version ${FORMAT_VERSION}.` };
   if (!Array.isArray(d.workouts)) return { ok: false, message: "The data block has no workouts list." };
   const workouts = (d.workouts as Workout[]).filter(validWorkout);
   const aliases = d.aliases && typeof d.aliases === "object" ? (d.aliases as Record<string, string>) : {};
-  return { ok: true, workouts, aliases, skipped: d.workouts.length - workouts.length };
+  const videos: Record<string, Video> = {};
+  if (d.videos && typeof d.videos === "object") {
+    for (const [k, v] of Object.entries(d.videos as Record<string, { id?: unknown; start?: unknown }>)) {
+      if (!v || !isVideoId(v.id) || (v.start !== undefined && !(typeof v.start === "number" && v.start > 0))) continue;
+      videos[k] = v.start ? { id: v.id, start: v.start as number } : { id: v.id };
+    }
+  }
+  return { ok: true, workouts, aliases, videos, skipped: d.workouts.length - workouts.length };
 }
 
 export function mergeWorkouts(existing: Workout[], incoming: Workout[]): Workout[] {
