@@ -15,6 +15,11 @@ export type DataState = {
   setVideo(name: string, url: string): boolean;
   removeVideo(name: string): void;
   mergeVideos(v: Record<string, Video>): void;
+  /** Exercise names removed from the Exercises list (normalized). */
+  hiddenExercises: string[];
+  hideExercise(name: string): void;
+  unhideExercise(name: string): void;
+  mergeHidden(keys: string[]): void;
   upNext: UpNext[];
   addUpNext(items: UpNext[]): void;
   removeUpNext(id: string): void;
@@ -79,6 +84,16 @@ export function createDataStore(kv: KV): UseBoundStore<StoreApi<DataState>> {
           set({ videos: rest });
         },
         mergeVideos: (v) => set({ videos: { ...v, ...get().videos } }),
+        hiddenExercises: [],
+        hideExercise: (name) => {
+          const k = aliasKey(name);
+          if (!k) return;
+          const { [k]: _gone, ...videos } = get().videos;
+          const hidden = get().hiddenExercises.includes(k) ? get().hiddenExercises : [...get().hiddenExercises, k];
+          set({ hiddenExercises: hidden, videos });
+        },
+        unhideExercise: (name) => set({ hiddenExercises: get().hiddenExercises.filter((k) => k !== aliasKey(name)) }),
+        mergeHidden: (keys) => set({ hiddenExercises: [...new Set([...get().hiddenExercises, ...keys.map(aliasKey).filter(Boolean)])] }),
         upNext: [],
         addUpNext: (items) => set({ upNext: [...get().upNext, ...items] }),
         removeUpNext: (id) => set({ upNext: get().upNext.filter((u) => u.id !== id) }),
@@ -124,7 +139,7 @@ export function createDataStore(kv: KV): UseBoundStore<StoreApi<DataState>> {
         name: "workout.data",
         version: 1,
         storage: createJSONStorage(() => safe),
-        partialize: ({ workouts, templates, active, aliases, lastExportAt, upNext, videos }) => ({ workouts, templates, active, aliases, lastExportAt, upNext, videos }),
+        partialize: ({ workouts, templates, active, aliases, lastExportAt, upNext, videos, hiddenExercises }) => ({ workouts, templates, active, aliases, lastExportAt, upNext, videos, hiddenExercises }),
       },
     ),
   );

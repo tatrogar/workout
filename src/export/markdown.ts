@@ -42,7 +42,7 @@ export function copyForClaude(w: Workout): string {
 }
 
 /** `videos` is passed only for a full backup; the Claude export leaves them out. */
-export function toMarkdown(workouts: Workout[], aliases: Record<string, string>, units: Units, now: Date, videos?: Record<string, Video>): string {
+export function toMarkdown(workouts: Workout[], aliases: Record<string, string>, units: Units, now: Date, videos?: Record<string, Video>, hidden?: string[]): string {
   const done = workouts.filter((w) => w.finishedAt).map(clean).sort((a, b) => b.startedAt.localeCompare(a.startedAt));
   const dates = done.map((w) => localDate(new Date(w.startedAt)));
   const range = done.length ? ` · ${dates[dates.length - 1]} to ${dates[0]}` : "";
@@ -52,7 +52,7 @@ export function toMarkdown(workouts: Workout[], aliases: Record<string, string>,
     "",
   ];
   for (const w of done) out.push(...workoutSection(w, units), "");
-  const data = { formatVersion: FORMAT_VERSION, exportedAt: now.toISOString(), units, aliases, ...(videos && Object.keys(videos).length ? { videos } : {}), workouts: done };
+  const data = { formatVersion: FORMAT_VERSION, exportedAt: now.toISOString(), units, aliases, ...(videos && Object.keys(videos).length ? { videos } : {}), ...(hidden && hidden.length ? { hidden } : {}), workouts: done };
   out.push("---", "", `Raw data (format version ${FORMAT_VERSION}):`, "", "```json", JSON.stringify(data), "```", "");
   return out.join("\n");
 }

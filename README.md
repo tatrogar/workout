@@ -58,7 +58,9 @@ More you can do:
   (timestamps like `t=95` are kept). A **▶ Video** button then appears whenever
   that exercise, or a circuit move with that name, is in a workout, and plays
   inside the app. It needs a connection. Links are included in "Export
-  everything" and restored by Import.
+  everything" and restored by Import. Tap ✕ next to an exercise to take it off
+  the list (e.g. "Cooldown"); it stays off until you bring it back from
+  **Hidden** at the bottom.
 - **Quick timer:** intervals or a countdown with no plan and nothing logged.
 - **Settings:** switch any cue on or off (chime, vibration, flash, spoken cues),
   set the default rest and the get-ready time, and hide the effort row, last

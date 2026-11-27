@@ -18,7 +18,7 @@ export function Settings() {
   const doExport = async (recentOnly: boolean) => {
     const now = new Date();
     const ws = recentOnly ? recentWorkouts(data.workouts, now, 28) : data.workouts;
-    const text = toMarkdown(ws, data.aliases, settings.units, now, recentOnly ? undefined : data.videos);
+    const text = toMarkdown(ws, data.aliases, settings.units, now, recentOnly ? undefined : data.videos, recentOnly ? undefined : data.hiddenExercises);
     const r = await shareOrDownload(exportFileName(now), text);
     if (r === "cancelled") return;
     // Only a full export counts as a backup.
@@ -33,6 +33,7 @@ export function Settings() {
     const merged = mergeWorkouts(data.workouts, r.workouts);
     data.replaceWorkouts(merged, { ...r.aliases, ...data.aliases });
     data.mergeVideos(r.videos);
+    data.mergeHidden(r.hidden);
     const bad = r.skipped ? ` ${r.skipped} damaged workout${r.skipped === 1 ? " was" : "s were"} left out.` : "";
     setMsg(`Imported. ${merged.length - before} new workout${merged.length - before === 1 ? "" : "s"}, ${merged.length} total.${bad}`);
   };

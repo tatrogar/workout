@@ -371,3 +371,21 @@ test("videos: add a link, watch it in a workout, offline message, backup", async
   await page.goto("#/exercises");
   await expect(page.getByRole("button", { name: "Edit video for Squat" })).toContainText("▶ video");
 });
+
+test("exercises can be taken off the list, stay off, and come back", async ({ page }) => {
+  await pastePlan(page, "# Day\n## Squat\nstrength: 1x5\n## Cooldown\nother: 5 min");
+  page.once("dialog", (d) => void d.accept("Day"));
+  await page.getByRole("button", { name: "Save as template" }).click();
+  await expect(page.getByRole("button", { name: "Saved ✓" })).toBeVisible();
+  await page.goto("#/exercises");
+  await expect(page.getByRole("button", { name: "Edit video for Cooldown" })).toBeVisible();
+  await page.getByRole("button", { name: "Remove Cooldown from the list" }).click();
+  await expect(page.getByRole("button", { name: "Edit video for Cooldown" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Edit video for Squat" })).toBeVisible();
+
+  await page.reload();
+  await expect(page.getByRole("button", { name: "Edit video for Cooldown" })).toHaveCount(0);
+  await page.getByText("Hidden (1)").click();
+  await page.getByRole("button", { name: "Bring back Cooldown" }).click();
+  await expect(page.getByRole("button", { name: "Edit video for Cooldown" })).toBeVisible();
+});

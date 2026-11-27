@@ -107,3 +107,32 @@ import { parseHash } from "../src/router";
 describe("route", () => {
   it("#/exercises exists", () => expect(parseHash("#/exercises").path).toBe("/exercises"));
 });
+
+describe("hiding exercises from the list", () => {
+  it("hide removes it and its video; unhide brings it back", () => {
+    const s = createDataStore(memory());
+    s.getState().setVideo("Cooldown", `https://youtu.be/${ID}`);
+    s.getState().hideExercise(" COOLDOWN ");
+    expect(s.getState().hiddenExercises).toEqual(["cooldown"]);
+    expect(s.getState().videos).toEqual({});
+    s.getState().hideExercise("cooldown");
+    expect(s.getState().hiddenExercises).toEqual(["cooldown"]);
+    s.getState().unhideExercise("Cooldown");
+    expect(s.getState().hiddenExercises).toEqual([]);
+  });
+  it("hidden names persist across restarts", () => {
+    const kv = memory();
+    createDataStore(kv).getState().hideExercise("Cooldown");
+    expect(createDataStore(kv).getState().hiddenExercises).toEqual(["cooldown"]);
+  });
+  it("full backups carry hidden names and import merges them", () => {
+    const md = toMarkdown([legDay()], {}, "lb", new Date(), {}, ["cooldown"]);
+    const r = parseExport(md);
+    expect(r.ok && r.hidden).toEqual(["cooldown"]);
+    expect(toMarkdown([legDay()], {}, "lb", new Date())).not.toContain('"hidden"');
+    const s = createDataStore(memory());
+    s.getState().hideExercise("warm-up");
+    s.getState().mergeHidden(["cooldown", "warm-up"]);
+    expect(s.getState().hiddenExercises).toEqual(["warm-up", "cooldown"]);
+  });
+});
