@@ -20,6 +20,9 @@ export type DataState = {
   hideExercise(name: string): void;
   unhideExercise(name: string): void;
   mergeHidden(keys: string[]): void;
+  /** Names from plans that were pasted and checked, so they can get a video before being done. */
+  knownNames: string[];
+  addKnownNames(names: string[]): void;
   upNext: UpNext[];
   addUpNext(items: UpNext[]): void;
   removeUpNext(id: string): void;
@@ -84,6 +87,18 @@ export function createDataStore(kv: KV): UseBoundStore<StoreApi<DataState>> {
           set({ videos: rest });
         },
         mergeVideos: (v) => set({ videos: { ...v, ...get().videos } }),
+        knownNames: [],
+        addKnownNames: (names) => {
+          const have = new Set(get().knownNames.map(aliasKey));
+          const add: string[] = [];
+          for (const n of names) {
+            const k = aliasKey(n);
+            if (!k || have.has(k)) continue;
+            have.add(k);
+            add.push(n.trim().replace(/\s+/g, " "));
+          }
+          if (add.length) set({ knownNames: [...get().knownNames, ...add] });
+        },
         hiddenExercises: [],
         hideExercise: (name) => {
           const k = aliasKey(name);
@@ -139,7 +154,7 @@ export function createDataStore(kv: KV): UseBoundStore<StoreApi<DataState>> {
         name: "workout.data",
         version: 1,
         storage: createJSONStorage(() => safe),
-        partialize: ({ workouts, templates, active, aliases, lastExportAt, upNext, videos, hiddenExercises }) => ({ workouts, templates, active, aliases, lastExportAt, upNext, videos, hiddenExercises }),
+        partialize: ({ workouts, templates, active, aliases, lastExportAt, upNext, videos, hiddenExercises, knownNames }) => ({ workouts, templates, active, aliases, lastExportAt, upNext, videos, hiddenExercises, knownNames }),
       },
     ),
   );

@@ -389,3 +389,16 @@ test("exercises can be taken off the list, stay off, and come back", async ({ pa
   await page.getByRole("button", { name: "Bring back Cooldown" }).click();
   await expect(page.getByRole("button", { name: "Edit video for Cooldown" })).toBeVisible();
 });
+
+test("checking a pasted plan puts its exercises on the Exercises list", async ({ page }) => {
+  await pastePlan(page, "# New\n## Romanian deadlift\nstrength: 3x8 @ 135 lb\n## Core\ncircuit: 1 round\n- Bird dog 8 reps/side\n## Cooldown\nother: 5 min");
+  await expect(page.getByRole("button", { name: "Start workout" })).toBeVisible();
+  await page.goto("#/exercises");
+  for (const n of ["Romanian deadlift", "Core", "Bird dog", "Cooldown"]) await expect(page.getByRole("button", { name: `Edit video for ${n}` })).toBeVisible();
+  await page.getByRole("button", { name: "Remove Cooldown from the list" }).click();
+  await pastePlan(page, "## Cooldown\nother: 5 min");
+  await page.goto("#/exercises");
+  await expect(page.getByRole("button", { name: "Edit video for Cooldown" })).toHaveCount(0);
+  await page.reload();
+  await expect(page.getByRole("button", { name: "Edit video for Bird dog" })).toBeVisible();
+});

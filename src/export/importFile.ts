@@ -2,7 +2,7 @@ import { isVideoId, type Video } from "../videos/youtube";
 import type { Workout } from "../workout/types";
 import { FORMAT_VERSION } from "./markdown";
 
-export type ImportResult = { ok: true; workouts: Workout[]; aliases: Record<string, string>; videos: Record<string, Video>; hidden: string[]; skipped: number } | { ok: false; message: string };
+export type ImportResult = { ok: true; workouts: Workout[]; aliases: Record<string, string>; videos: Record<string, Video>; hidden: string[]; known: string[]; skipped: number } | { ok: false; message: string };
 
 const num = (v: unknown) => typeof v === "number" && Number.isFinite(v);
 const str = (v: unknown) => typeof v === "string";
@@ -32,7 +32,7 @@ export function parseExport(text: string): ImportResult {
   if (!blocks.length) return { ok: false, message: "This file has no workout data block. Pick a file this app exported." };
   let data: unknown;
   try { data = JSON.parse(blocks[blocks.length - 1][1]); } catch { return { ok: false, message: "The data block in this file is damaged." }; }
-  const d = data as { formatVersion?: unknown; workouts?: unknown; aliases?: unknown; videos?: unknown; hidden?: unknown };
+  const d = data as { formatVersion?: unknown; workouts?: unknown; aliases?: unknown; videos?: unknown; hidden?: unknown; known?: unknown };
   if (d.formatVersion !== FORMAT_VERSION) return { ok: false, message: `This file is format version ${String(d.formatVersion)}; this app reads version ${FORMAT_VERSION}.` };
   if (!Array.isArray(d.workouts)) return { ok: false, message: "The data block has no workouts list." };
   const workouts = (d.workouts as Workout[]).filter(validWorkout);
@@ -45,7 +45,8 @@ export function parseExport(text: string): ImportResult {
     }
   }
   const hidden = Array.isArray(d.hidden) ? d.hidden.filter((h): h is string => typeof h === "string" && h.trim() !== "") : [];
-  return { ok: true, workouts, aliases, videos, hidden, skipped: d.workouts.length - workouts.length };
+  const known = Array.isArray(d.known) ? d.known.filter((h): h is string => typeof h === "string" && h.trim() !== "") : [];
+  return { ok: true, workouts, aliases, videos, hidden, known, skipped: d.workouts.length - workouts.length };
 }
 
 export function mergeWorkouts(existing: Workout[], incoming: Workout[]): Workout[] {

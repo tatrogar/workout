@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { embedUrl, parseYouTube } from "../src/videos/youtube";
-import { allExerciseNames, videoFor } from "../src/videos/library";
+import { allExerciseNames, planNames, videoFor } from "../src/videos/library";
 import { createDataStore, type KV } from "../src/store/data";
 import { toMarkdown } from "../src/export/markdown";
 import { parseExport } from "../src/export/importFile";
@@ -134,5 +134,28 @@ describe("hiding exercises from the list", () => {
     s.getState().hideExercise("warm-up");
     s.getState().mergeHidden(["cooldown", "warm-up"]);
     expect(s.getState().hiddenExercises).toEqual(["warm-up", "cooldown"]);
+  });
+});
+
+describe("names from pasted plans", () => {
+  it("the store remembers names once each, keeping the first spelling", () => {
+    const s = createDataStore(memory());
+    s.getState().addKnownNames(["Romanian deadlift", " romanian  DEADLIFT ", "Dead bugs"]);
+    s.getState().addKnownNames(["Dead bugs"]);
+    expect(s.getState().knownNames).toEqual(["Romanian deadlift", "Dead bugs"]);
+  });
+  it("they appear in the Exercises list", () => {
+    const names = allExerciseNames({ workouts: [], active: null, templates: [], upNext: [], videos: {}, knownNames: ["Romanian deadlift"] }, {});
+    expect(names).toEqual([{ key: "romanian deadlift", display: "Romanian deadlift" }]);
+  });
+  it("plan names include circuit moves", () => {
+    const r = parsePlan("## RDL\nstrength: 3x8\n## Core\ncircuit: 1 round\n- Dead bugs 8 reps/side", "lb");
+    if (!r.ok) throw new Error();
+    expect(planNames(r.plan)).toEqual(["RDL", "Core", "Dead bugs"]);
+  });
+  it("full backups carry them", () => {
+    const md = toMarkdown([], {}, "lb", new Date(), {}, [], ["Romanian deadlift"]);
+    const r = parseExport(md);
+    expect(r.ok && r.known).toEqual(["Romanian deadlift"]);
   });
 });

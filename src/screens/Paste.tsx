@@ -7,6 +7,7 @@ import { navigate } from "../router";
 import { useData } from "../store/data";
 import { useSettings } from "../store/settings";
 import { createWorkout, newId } from "../workout/session";
+import { planNames } from "../videos/library";
 
 const REWRITE_ASK = "Rewrite this workout in the workout app format from my instructions, in one code block in the chat, not an artifact.";
 const DRAFT_KEY = "workout.pasteDraft";
@@ -28,6 +29,7 @@ export function Paste() {
   const units = useSettings((s) => s.units);
   const saveTemplate = useData((s) => s.saveTemplate);
   const addUpNext = useData((s) => s.addUpNext);
+  const addKnownNames = useData((s) => s.addKnownNames);
   const [week, setWeek] = useState<{ text: string; result: ParseResult }[] | null>(null);
   const [text, setText] = useState(readDraft);
   const [result, setResult] = useState<ParseResult | null>(null);
@@ -37,8 +39,11 @@ export function Paste() {
   const check = (t: string) => {
     const parts = splitPlans(t);
     setSaved(false);
-    if (parts.length > 1) { setWeek(parts.map((p) => ({ text: p, result: parsePlan(p, units) }))); setResult(null); }
-    else { setWeek(null); setResult(parsePlan(t, units)); }
+    const results = parts.map((p) => ({ text: p, result: parsePlan(p, units) }));
+    // Every exercise in a plan that reads cleanly goes on the Exercises list right away, ready for a video.
+    addKnownNames(results.flatMap((r) => (r.result.ok ? planNames(r.result.plan) : [])));
+    if (parts.length > 1) { setWeek(results); setResult(null); }
+    else { setWeek(null); setResult(results[0].result); }
   };
   const parse = () => check(text);
 

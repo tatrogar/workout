@@ -12,7 +12,7 @@ export function Exercises() {
   const [q, setQ] = useState("");
   const [openKey, setOpenKey] = useState<string | null>(null);
   const [newName, setNewName] = useState("");
-  const names = useMemo(() => allExerciseNames(data, data.aliases), [data.workouts, data.active, data.templates, data.upNext, data.videos, data.aliases]); // eslint-disable-line react-hooks/exhaustive-deps
+  const names = useMemo(() => allExerciseNames(data, data.aliases), [data.workouts, data.active, data.templates, data.upNext, data.videos, data.aliases, data.knownNames]); // eslint-disable-line react-hooks/exhaustive-deps
   const hidden = new Set(data.hiddenExercises);
   const visible = names.filter((n) => !hidden.has(n.key));
   const hiddenNames = data.hiddenExercises.map((k) => names.find((n) => n.key === k) ?? { key: k, display: k.charAt(0).toUpperCase() + k.slice(1) })
@@ -31,7 +31,7 @@ export function Exercises() {
       <p className="text-sm text-[var(--muted)]">Add a YouTube link to an exercise and a ▶ Video button shows up whenever it's in a workout. Links with a timestamp (t=95) start there. {withVideo} of {visible.length} have a video. Tap ✕ to take an exercise off this list.</p>
       <input className="min-h-touch w-full rounded-xl bg-slate-800 px-3" placeholder="Search" aria-label="Search exercises" value={q} onChange={(e) => setQ(e.target.value)} />
 
-      {names.length === 0 && <p className="text-[var(--muted)]">Exercises from your workouts, templates and Up next show up here.</p>}
+      {names.length === 0 && <p className="text-[var(--muted)]">Exercises show up here as soon as you check a pasted plan, and from your workouts, templates and Up next.</p>}
       <ul className="space-y-2">
         {shown.map((n) => (
           <li key={n.key}>

@@ -54,7 +54,8 @@ More you can do:
   Timed sides run first side, a short "switch sides" countdown, then the other
   side with no taps. Each side is logged separately. Settings has the switch
   time and which side goes first.
-- **Videos:** on the **Exercises** tab, paste a YouTube link for any exercise
+- **Videos:** every exercise in a plan lands on the **Exercises** tab as soon
+  as you tap Check plan. Paste a YouTube link for any exercise
   (timestamps like `t=95` are kept). A **▶ Video** button then appears whenever
   that exercise, or a circuit move with that name, is in a workout, and plays
   inside the app. It needs a connection. Links are included in "Export
